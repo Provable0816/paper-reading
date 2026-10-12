@@ -1,0 +1,1817 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>大模型训练全流程</title>
+<!-- ===== XRAY HEAD START: copy whole block ===== -->
+<script>(function(){var t;try{t=localStorage.getItem('theme')}catch(e){}if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';var q=location.search;if(/[?&]theme=dark/.test(q))t='dark';if(/[?&]theme=light/.test(q))t='light';document.documentElement.setAttribute('data-theme',t)})();</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<!-- ===== XRAY HEAD END ===== -->
+<style>
+/* ===== XRAY PAGE CSS START: copy whole block ===== */
+:root{
+  --bg:#faf9f5;--surface-secondary:#f5f4ed;--surface-code:#f3f1ea;--surface-raised:#ffffff;
+  --ink:#141413;--ink-secondary:#3d3d3a;--ink-tertiary:#73726c;
+  --accent:#d97757;--accent-hover:#bd6245;--accent-text:#ad493e;--highlight:#ebdbbc;--line:#deddd8;
+  --bench:#eef3f4;--mark:#f3e3b6;--mark-note:#f6dccf;
+  --serif:"Anthropic Serif","Tiempos Text","Source Serif 4",Georgia,"Noto Serif SC",serif;
+  --sans:"Anthropic Sans",-apple-system,"Segoe UI","Noto Sans SC",sans-serif;
+  --mono:"Anthropic Mono","JetBrains Mono",Consolas,monospace;
+}
+[data-theme="dark"]{
+  --bg:#30302e;--surface-secondary:#262624;--surface-code:#232321;--surface-raised:#3d3d3a;
+  --ink:#faf9f5;--ink-secondary:#c2c0b6;--ink-tertiary:#9c9a92;
+  --accent:#e38b6b;--accent-hover:#f0a283;--accent-text:#e38b6b;--highlight:#3a3936;--line:#3d3d3a;
+  --bench:#2a3236;--mark:#5a4a25;--mark-note:#5b3a2c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:17px/1.78 var(--serif);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+#progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--accent);opacity:.38;z-index:20;transition:opacity .4s}
+.top{position:fixed;top:12px;left:20px;z-index:15;display:flex;gap:16px;align-items:center}
+.top button{all:unset;cursor:pointer;color:var(--ink-tertiary);font:16px var(--sans);position:relative;line-height:1}
+.top button:hover,.top button:focus-visible{color:var(--ink)}
+.top button.on{color:var(--accent)}
+.top button.dirty::after{content:"";position:absolute;right:-5px;top:-2px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.wrap{max-width:1560px;margin:0 auto;padding:56px 48px 120px;display:grid;grid-template-columns:224px minmax(0,1fr);gap:48px;align-items:start}
+body.nav-hidden .wrap{grid-template-columns:minmax(0,1fr)}
+body.nav-hidden .toc{display:none}
+.toc{position:sticky;top:36px;font:13px/1.55 var(--sans)}
+.toc a{color:var(--ink-tertiary);text-decoration:none;padding:4px 0 4px 10px;border-left:2px solid transparent;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.toc a.h3{padding-left:22px;font-size:12.5px}
+.toc a:hover{color:var(--ink)}
+.toc a.cur{color:var(--ink);border-left-color:var(--accent)}
+main{min-width:0;position:relative}
+main>p,main>ul,main>ol,main>h1,main>h2,main>h3,main>blockquote,.xr-sec>p,.xr-sec>ul,.xr-sec>ol,.xr-sec>blockquote,.xr-sec>h3,div.note,div.warn,.bench,.steps,.info,.tcap{max-width:var(--measure,88ch)}
+h1{font-size:31px;line-height:1.28;font-weight:700;letter-spacing:-.015em;border-bottom:3px double var(--line);padding-bottom:14px;margin:0 0 18px}
+h2{font-size:22px;line-height:1.38;font-weight:700;margin:64px 0 14px}
+h3{font-size:18px;font-weight:700;margin:34px 0 8px}
+a{color:var(--accent-text)}
+.info{font:14.5px/1.7 var(--sans);color:var(--ink-secondary);margin:0 0 22px}
+.info b{color:var(--ink);font-weight:600}
+.info .k{display:inline-block;min-width:5.5em;color:var(--ink-tertiary)}
+div.note,div.warn{padding:12px 18px;font-size:14.5px;line-height:1.7;margin:22px 0;border-left:3px solid var(--accent)}
+div.note{background:var(--surface-secondary)}
+div.warn{background:color-mix(in srgb,var(--accent) 9%,var(--bg))}
+div.note b:first-child,div.warn b:first-child{font-family:var(--sans);font-size:13px;letter-spacing:.04em;margin-right:.6em}
+.bench{background:var(--bench);padding:14px 20px;margin:22px 0;border-radius:3px}
+.bench>p{margin:0 0 .7em}.bench>p:last-child{margin-bottom:0}
+.steps{border-left:1px solid var(--line);padding-left:18px;margin:22px 0}
+.steps .st{font:13px var(--mono);letter-spacing:.06em;color:var(--ink-tertiary);margin-top:14px}
+.pill{font:13px var(--mono);background:var(--surface-secondary);border:1px solid var(--line);border-radius:4px;padding:0 6px}
+.side{float:right;clear:right;width:220px;margin:4px -260px 10px 0;font:14px/1.6 var(--sans);color:var(--ink-tertiary)}
+code{font:14px var(--mono);color:var(--accent-text)}
+pre.code{background:var(--surface-code);border-left:1px solid var(--line);padding:30px 18px 14px;font:13.5px/1.6 var(--mono);overflow:auto;position:relative;margin:0}
+pre.code::before{content:attr(data-label);position:absolute;top:8px;left:18px;color:var(--ink-tertiary);font-size:12px}
+pre.code .c{color:var(--ink-tertiary)} pre.code .n{color:var(--accent-text)}
+details.code{margin:22px 0;max-width:100%}
+details.code>summary{cursor:pointer;font:13.5px var(--mono);color:var(--ink-tertiary);list-style:none;padding:6px 0}
+details.code>summary::before{content:"▸ ";}
+details.code[open]>summary::before{content:"▾ ";}
+details.code>summary:hover{color:var(--ink)}
+table.t{border-collapse:collapse;font:14.5px/1.5 var(--sans);margin:18px 0;font-variant-numeric:tabular-nums}
+table.t th,table.t td{padding:5px 14px;border-bottom:1px solid var(--line);text-align:right}
+table.t th:first-child,table.t td:first-child{text-align:left}
+table.t.left th,table.t.left td{text-align:left}
+table.t th{color:var(--ink-tertiary);font-weight:500}
+table.t tr.hl td{background:var(--highlight)}
+.tcap{font-size:14px;color:var(--ink-tertiary);margin:-8px 0 26px}
+figure.pf{margin:26px 0 8px}
+figure.pf img{max-width:100%;display:block;border-radius:2px}
+.katex{font-size:1.04em}
+/* fold */
+.xr-fold{all:unset;cursor:pointer;color:var(--ink-tertiary);font:12px var(--sans);width:18px;display:inline-block;margin-left:-22px;text-align:center;opacity:.35;transition:opacity .2s,transform .2s}
+h2:hover .xr-fold,h3:hover .xr-fold,.xr-fold:focus-visible,.folded>.xr-fold{opacity:1}
+.folded>.xr-fold{transform:rotate(-90deg)}
+.xr-sec.closed{display:none}
+/* marks */
+.xr-m{color:inherit;border-radius:2px;padding:0 1px;cursor:context-menu}
+.xr-hl{background:var(--mark)}
+.xr-note{background:var(--mark-note)}
+.xr-fb{background:none;text-decoration:underline dotted var(--ink-tertiary);text-underline-offset:4px}
+.xr-fb[data-fb="confused"]{text-decoration:underline wavy var(--accent);text-decoration-thickness:1px}
+.xr-m.flash{outline:2px solid var(--accent);outline-offset:1px}
+/* selection bar, menu, toast */
+.xr-ui{position:fixed;z-index:30;font:13.5px var(--sans);display:none}
+.xr-bar{background:#1f1f1e;color:#eeeae0;border-radius:7px;padding:4px 6px;box-shadow:0 4px 18px rgba(0,0,0,.18);white-space:nowrap}
+.xr-bar button,.xr-menu button{all:unset;cursor:pointer;padding:3px 9px;border-radius:4px}
+.xr-bar button:hover,.xr-bar button:focus-visible{background:#3a3a37}
+.xr-bar .sep{display:inline-block;width:1px;height:14px;background:#4a4a46;vertical-align:middle;margin:0 3px}
+.xr-bar .fb{display:none}.xr-bar.fbopen .fb{display:inline-block}.xr-bar.fbopen .fbbtn{display:none}
+.xr-menu{background:var(--surface-raised);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.xr-menu button:hover{background:var(--surface-secondary)}
+.xr-toast{left:50%;bottom:34px;transform:translate(-50%,12px);opacity:0;background:var(--surface-raised);color:var(--ink-secondary);border:1px solid var(--line);border-radius:18px;padding:7px 16px;transition:opacity .25s,transform .35s cubic-bezier(.4,0,.2,1)}
+.xr-toast.show{opacity:1;transform:translate(-50%,0)}
+.xr-toast i{font-style:normal;color:var(--accent);margin-right:6px;display:inline-block;animation:xr-pop .5s cubic-bezier(.4,0,.2,1)}
+@keyframes xr-pop{0%{transform:scale(.3)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+/* margin notes */
+.xr-margin{position:absolute;top:0;width:280px}
+.xr-card{position:absolute;left:0;width:100%;background:var(--surface-raised);border:1px solid var(--line);border-left:2px solid var(--accent);border-radius:4px;padding:8px 12px 10px;font:13.5px/1.6 var(--sans);color:var(--ink-secondary);box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.xr-card::before{content:"";position:absolute;left:-26px;top:14px;width:24px;border-top:1px solid var(--accent);opacity:.6}
+.xr-card .q{color:var(--ink-tertiary);font-size:12.5px;border-left:2px solid var(--line);padding-left:8px;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.xr-card textarea{all:unset;display:block;width:100%;min-height:1.6em;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+.xr-card.inline{position:relative;margin:10px 0 18px;max-width:88ch}
+.xr-card.inline::before{display:none}
+body.xr-annot main{cursor:text}
+@media (max-width:1100px){
+  .wrap{grid-template-columns:minmax(0,1fr)}
+  .toc{display:none;position:fixed;top:44px;left:16px;z-index:16;background:var(--surface-raised);border:1px solid var(--line);padding:12px 16px;max-height:70vh;overflow:auto;width:280px}
+  body.nav-open .toc{display:block}
+  .side{float:none;width:auto;margin:10px 0;padding-left:12px;border-left:2px solid var(--line)}
+}
+@media (max-width:640px){.wrap{padding:52px 20px 80px}h1{font-size:25px}body{font-size:16px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{.top,#progress,.xr-ui,.xr-fold{display:none!important}.xr-sec.closed{display:block}}
+/* ===== XRAY PAGE CSS END ===== */
+/* ===== FIGKIT TOKENS START — copy whole block ===== */
+:root{
+  --in:#1a6fa3;   --in-fill:#e2eff5;   --in-hi:#b5d8ec;
+  --out:#9e5c00;  --out-fill:#f8ecd2;  --out-hi:#f0cf8a;
+  --op:#0b7a5c;   --op-fill:#dcf2e8;   --op-hi:#a9e3cc;
+  --norm:#7a6b00; --norm-fill:#f8f4cf; --norm-hi:#efe58a;
+  --loss:#b34a06; --loss-fill:#f9e3d6; --loss-hi:#f1bd9c;
+  --alt:#6a55c2;  --alt-fill:#ebe7f8;  --alt-hi:#cdc2f0;
+  --param:#a8457c;
+  --wire:#6e737b;
+  --fig-ink:var(--ink);
+  --stack-fill:#f2f0e8; --stack-line:#c9c6bb;
+  --cell:#f0eee6; --cell-line:#c9c6bb;
+}
+[data-theme="dark"]{
+  --in:#56b4e9;   --in-fill:#2a4455;   --in-hi:#3e6a88;
+  --out:#e69f00;  --out-fill:#4e3e1b;  --out-hi:#755d29;
+  --op:#35c79a;   --op-fill:#224842;   --op-hi:#2f6b5b;
+  --norm:#f0e442; --norm-fill:#4e4a1b; --norm-hi:#77702a;
+  --loss:#ff8a5c; --loss-fill:#4f2c1f; --loss-hi:#7a412b;
+  --alt:#b4a2f0;  --alt-fill:#38334f;  --alt-hi:#544a7e;
+  --param:#e4a0c8;
+  --wire:#9aa0a8;
+  --fig-ink:#e6e6e6;
+  --stack-fill:#262624; --stack-line:#6e6e6e;
+  --cell:#2e2e2e; --cell-line:#6e6e6e;
+}
+.r-in{--c:var(--in);--f:var(--in-fill);--h:var(--in-hi);color:var(--in)}
+.r-out{--c:var(--out);--f:var(--out-fill);--h:var(--out-hi);color:var(--out)}
+.r-op{--c:var(--op);--f:var(--op-fill);--h:var(--op-hi);color:var(--op)}
+.r-norm{--c:var(--norm);--f:var(--norm-fill);--h:var(--norm-hi);color:var(--norm)}
+.r-loss{--c:var(--loss);--f:var(--loss-fill);--h:var(--loss-hi);color:var(--loss)}
+.r-alt{--c:var(--alt);--f:var(--alt-fill);--h:var(--alt-hi);color:var(--alt)}
+.r-param{--c:var(--param);color:var(--param)}
+.r-wire{--c:var(--wire);color:var(--wire)}
+
+.fk-fig{margin:30px 0 10px;overflow-x:auto}
+.fk{display:block;width:100%;height:auto;overflow:visible}
+.fk text{font-family:"KaTeX_Main","Latin Modern Roman","CMU Serif","Noto Serif SC","Songti SC",serif;fill:var(--fig-ink);dominant-baseline:central}
+.fk .mi{font-family:"KaTeX_Math","Latin Modern Math","CMU Serif",serif;font-style:italic}
+.fk .tt{font-family:"KaTeX_Typewriter","Latin Modern Mono",Consolas,monospace}
+.fk .bf{font-weight:700}
+.fk [class*="r-"] text,.fk text[class*="r-"]{fill:var(--c)}
+.fk tspan[class*="r-"]{fill:var(--c)}
+.fk .blk>rect,.fk .node>circle{fill:var(--f);stroke:var(--c);stroke-width:1.5}
+.fk .blk.on>rect,.fk .node.on>circle{fill:var(--h);stroke-width:2.8}
+.fk .add>circle{fill:var(--norm-fill);stroke:var(--norm);stroke-width:1.4}
+.fk .add>path{stroke:var(--norm);stroke-width:1.9;fill:none}
+.fk .wire{fill:none;stroke:var(--wire);stroke-width:1.3}
+.fk .wire[class*="r-"]{stroke:var(--c)}
+.fk .head{fill:var(--wire)}
+.fk .head[class*="r-"]{fill:var(--c)}
+.fk .dot{fill:var(--wire)}
+.fk .edge{stroke:var(--wire);stroke-width:1.2;opacity:.3}
+.fk .edge.on{opacity:1}
+.fk .stack{fill:var(--stack-fill);stroke:var(--stack-line);stroke-width:1.5}
+.fk .pe>circle{fill:none;stroke:var(--wire);stroke-width:1.3}
+.fk .pe>path{fill:none;stroke:var(--wire);stroke-width:1.3}
+.fk .note{fill:var(--wire)}
+.fk .param{fill:var(--param)}
+.fk .cell text{fill:var(--fig-ink)}
+.fk .cell>rect{fill:var(--cell);stroke:var(--cell-line);stroke-width:1}
+.fk .cell.on>rect{fill:var(--h);stroke:var(--c);stroke-width:2.6}
+.fk .hit{cursor:pointer}
+.fk .lead{stroke:var(--c);stroke-width:1.3}
+.fk foreignObject div{font-size:13.5px;color:var(--fig-ink);text-align:center;line-height:1.2}
+
+/* controls: one line, text-styled, no fill, no border */
+.fk-ctl{display:flex;align-items:center;gap:14px;margin:6px 0 0;font:15px/1.5 "KaTeX_Main",Georgia,serif;color:var(--ink-tertiary);font-variant-numeric:tabular-nums}
+.fk-ctl button{all:unset;cursor:pointer;color:var(--ink-tertiary);padding:0 2px}
+.fk-ctl button:hover,.fk-ctl button:focus-visible{color:var(--ink)}
+.fk-ctl .say{color:var(--ink-secondary)}
+.fk-ctl input[type=range]{-webkit-appearance:none;appearance:none;width:220px;height:18px;background:transparent;cursor:pointer}
+.fk-ctl input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--wire)}
+.fk-ctl input[type=range]::-moz-range-track{height:1px;background:var(--wire)}
+.fk-ctl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:var(--f,var(--bg,#faf9f5));border:2px solid var(--c,var(--ink-secondary,#5e5d59));transition:transform .15s}
+.fk-ctl input[type=range]::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:var(--f,var(--bg,#faf9f5));border:2px solid var(--c,var(--ink-secondary,#5e5d59))}
+.fk-ctl input[type=range]:hover::-webkit-slider-thumb,.fk-ctl input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1.2)}
+.fk-cap{margin:8px 0 34px;font-size:14px;color:var(--ink-tertiary);max-width:88ch}
+.fk-cap b{font-weight:400;color:var(--ink-secondary);margin-right:.6em}
+/* zoom panels: a box opens into its own inside */
+.fk .zwedge{fill:var(--stack-line);opacity:.28}
+.fk .zedge{stroke:var(--stack-line);stroke-width:1.5;fill:none}
+.fk .zframe{fill:var(--bg);stroke:var(--stack-line);stroke-width:2.2}
+.fk .zhead{fill:var(--stack-fill)}
+.fk .ztitle{font-weight:700}
+.fk .zoom{transition:opacity .45s cubic-bezier(.4,0,.2,1),transform .45s cubic-bezier(.4,0,.2,1)}
+.fk .zoom.off{opacity:0;pointer-events:none}
+.fk .blk.zsrc{cursor:zoom-in}
+.fk .blk.zsrc.zopen>rect{stroke-width:2.2}
+/* text heat: weights as a soft halo behind each token */
+.fk-heat{font:25px/1.25 "Times New Roman","KaTeX_Main","Noto Serif SC",serif;color:var(--fig-ink);margin:26px 0 8px;user-select:none}
+.fk-heat .row{display:flex;flex-wrap:wrap;gap:.08em .1em;padding:.22em .3em;border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.fk-heat .row:last-child{border-bottom:0}
+.fk-heat.box{border:1.5px solid var(--fig-ink);padding:.15em .2em;display:inline-block;min-width:min(100%,640px)}
+.fk-heat .tk{padding:.06em .34em;border-radius:50%;transition:background .35s}
+.fk-heat .tk.q{color:var(--q,var(--loss))}
+.fk-heat .tk.later{color:var(--fig-ink)}
+.fk-heat.pick .tk{cursor:pointer}
+.fk-heat.pick .row{border:0;font-size:28px}
+/* isometric plates: line drawing, the stroke is the only highlight */
+.fk-iso{display:block;width:100%;max-width:560px;height:auto;touch-action:none}
+.fk-iso .fill{fill:var(--bg)}
+.fk-iso .crease{fill:none;stroke:var(--stack-line);stroke-width:.9;stroke-linejoin:round}
+.fk-iso .sil{fill:none;stroke:var(--wire);stroke-width:1;stroke-linejoin:round;transition:stroke .26s}
+.fk-iso .sil.hi{stroke:var(--c);stroke-width:1.8}
+.fk-iso .ground{fill:none;stroke:var(--stack-line);stroke-width:.8;stroke-dasharray:2 4}
+/* data plots: axes are wire gray, series carry the role color; a slider redraws them in place */
+.fk .axis{stroke:var(--wire);stroke-width:1;fill:none}
+.fk .tick{stroke:var(--wire);stroke-width:1}
+.fk .curve{fill:none;stroke:var(--c,var(--wire));stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.fk .curve.thin{stroke-width:1.3}
+.fk .curve.faint{stroke:var(--wire);stroke-width:1.1;opacity:.38}
+.fk .curve.guide{stroke:var(--wire);stroke-width:1.1;stroke-dasharray:3 4}
+.fk .pt{fill:var(--f,var(--bg));stroke:var(--c,var(--wire));stroke-width:1.9}
+.fk .pt.solid{fill:var(--c,var(--wire))}
+.fk .bar{fill:var(--f,var(--cell));stroke:var(--c,var(--cell-line));stroke-width:1.3;transition:fill .3s}
+.fk .bar.on{fill:var(--h,var(--cell));stroke-width:2.4}
+.fk .bar.faint{opacity:.35}
+.fk .ref{stroke:var(--c,var(--wire));stroke-width:1.2}
+/* token chips: boundaries show as alternating tints, raw bytes of a split character show in the failure color */
+.fk-toks{margin:24px 0 6px;font:19px/2.05 "Anthropic Mono",Consolas,"Noto Sans Mono CJK SC",monospace;color:var(--fig-ink)}
+.fk-toks .row{display:flex;flex-wrap:wrap;gap:3px 0;margin:0 0 6px}
+.fk-toks .tk{padding:1px 2px;border-radius:3px;background:var(--in-fill);white-space:pre}
+.fk-toks .tk.b{background:var(--cell)}
+.fk-toks .tk.raw{background:var(--loss-fill);color:var(--loss);font-size:.68em;padding:3px 3px;align-self:center}
+.fk-toks .tk .sp{opacity:.4}
+.fk-toks .lab{font:13px/2.6 "Anthropic Sans",system-ui,sans-serif;color:var(--ink-tertiary);width:100%;margin-top:4px}
+@media (prefers-reduced-motion:reduce){.fk *{transition:none!important}}
+/* ===== FIGKIT TOKENS END ===== */
+</style>
+</head>
+<body>
+<!-- ===== XRAY BODY TOP START: copy whole block ===== -->
+<div id="progress"></div>
+<header class="top"><button id="xrNav" title="目录">☰</button><button id="xrTheme" title="明暗">◐</button><button id="xrPen" title="标注">✎</button><button id="xrSave" title="保存标注到这个文件">⤓</button></header>
+<div class="wrap">
+<nav class="toc" aria-label="contents"></nav>
+<main id="doc">
+<!-- ===== XRAY BODY TOP END ===== -->
+<h1>大模型只训一次，所有决定都在小模型上做完</h1>
+<div class="info"><span class="k">主题</span>一个基座模型从网页快照到能说人话的助手，中间要做的十几个决定<br><span class="k">资料截至</span>2026 年 1 月。以 2025 年下半年到 2026 年初的技术报告为主（DeepSeek-V3.2、Kimi K2、Qwen3、Qwen3-VL、Gemini 2.5、ScaleRL），早年的 Kaplan、Chinchilla、Llama 3 只保留至今仍在用的结论。完整清单在文末<br><span class="k">核心洞见</span>最贵的那次训练只跑一次。模型多大、喂什么数据、用什么优化器、强化学习跑多久，都先在小几个数量级的实验上试出来，再沿一条拟合好的曲线外推。2025 年的变化是，这套做法从预训练延伸到了后训练：强化学习现在也有了可以外推的曲线，后训练的算力也从预训练的零头涨到了一成以上。</div>
+<div class="note"><b>颜色</b><span class="r-in">蓝色</span>是数据和 token，<span class="r-op">绿色</span>是模型和参数，<span class="r-out">橙色</span>是预测、输出和后训练，<span class="r-loss">橙红</span>是损失、故障和浪费掉的算力，<span class="r-alt">紫色</span>是修正后的做法或另一条路线。</div>
+
+<h2>一条曲线定下一次训练</h2>
+<p>2025 年 10 月，Meta 等机构的一篇论文做了一件以前只在预训练里做过的事：他们花了 40 万 GPU 小时研究强化学习的缩放，拟合出一条 S 形曲线，然后把一次强化学习一路跑到 10 万 GPU 小时，用前一小段的数据预测后面的走势，最后的结果落在曲线上。【文中有据，ScaleRL，arXiv 2510.13786，第 1 至 2 页】</p>
+<p>同一年 12 月，DeepSeek-V3.2 的报告写明，它在后训练上花的算力超过了预训练的 10%。【文中有据，DeepSeek-V3.2 报告第 2 页】作为对照，半年前 DeepSeek-R1 的强化学习用了 10 万 H800 卡时，只占它预训练算力的 3.75%。【文中有据，ScaleRL 第 2 页引用 R1 的数字】</p>
+<p>这两件事放在一起，说明大模型训练这门手艺在 2025 年变成了什么样。旗舰模型的预训练动辄数月、数千张卡，没有人付得起第二次，所以每个决定都先在小模型上试，再靠曲线外推。这套方法在预训练里已经用了五年，从 2020 年的 Kaplan 到 2024 年的 Llama 3，后者在开训之前就用小于 $10^{22}$ FLOPs 的模型预测出了 405B 在 ARC-Challenge 上的成绩。新的部分是后训练：它不再是预训练结束后的一层薄薄的微调，而是一个有自己的算力预算、自己的缩放曲线、自己的失败方式的阶段。如今用户能直接感受到的那些差别，比如模型会不会写一段能跑的前端动画、画一张像样的 SVG、说话像不像人，主要是在这个阶段决定的。</p>
+<p>下面按真正动手时的顺序走一遍。每一步说清楚四件事：手里有什么，能怎么选，业界实际怎么选的、数字是多少，选错了会看到什么。另外还有一件：<b>这个决定是靠哪个小实验做出来的</b>。</p>
+
+<h2>一条流水线上的十二个决定</h2>
+<p>下面这张图是全景。上面一行是预训练，下面一行是预训练之后的事。点任意一个方框，图下会列出三次参照训练在这一步的实际选择，以及做这个决定所依据的那个小实验。</p>
+<div class="fk-fig" id="figMap"></div>
+<div class="fk-ctl" id="ctlMap"></div>
+<div id="mapCard"></div>
+<p class="fk-cap"><b>图 1</b>训练流水线的十二个决定。点方框切换下方的表；表里每一项都在后文对应的小节里展开，出处也在那里给出。</p>
+<p>这张表最该看的是最后一行。几乎每一步都有一个和它配对的小实验：定大小用 isoFLOP 曲线，定数据用 1B 到 8B 模型上的消融，定分词器用 1B 模型训 100B token 的对照，定结构上的稳定性改动用小模型的学习率扫描。大模型本身只负责执行。这个主题按环节拆开，可以写成四篇：预算与配比，数据与分词器，结构、并行与稳定性，后训练与评测。这里合成一篇，按决定的顺序走，每一节也可以单独读。</p>
+
+<h2 id="budget">算力预算与 6ND</h2>
+<p>一切从钱开始。钱换算成算力：多少张卡、用多少天、每张卡实际能跑出多少 FLOP/s。输出是一个总数 $C$，单位是浮点运算次数。后面所有的取舍，都是在固定 $C$ 的条件下做的，所以先要会用 $C$ 算账。</p>
+<p>稠密 Transformer 训练一个 token 的计算量，近似是参数量的 6 倍：</p>
+<p>$$C\approx 6\,\role{op}{N}\,\role{in}{D}$$</p>
+<p>其中 <span class="pill r-op">N</span> 是参数量，<span class="pill r-in">D</span> 是训练的 token 数。6 的来历很具体。前向时每个参数参与一次乘法和一次加法，是 2 次运算；反向时要对激活求梯度，还要对权重求梯度，各是一次同样规模的矩阵乘，合起来 4 次。2 加 4 等于 6。这个式子漏掉了注意力里和序列长度有关的那一项：每个 token 的前向还要多做大约 $2\,n_{\text{layer}}\,n_{\text{ctx}}\,d$ 次运算（Kaplan 等人 2020，表 1）。代入 Llama 3 405B 的形状，126 层、宽 16384、上下文 8192，三倍之后是每个 token $1.0\times10^{11}$，而 $6N$ 是 $2.4\times10^{12}$，漏掉的那一项约占 4%。上下文拉到 128K 时同一项会涨到 $6N$ 的六成以上，这时 6ND 就不能直接用了。</p>
+<p>用这个式子核对几个公开的数字：</p>
+<table class="t">
+<tr><th>训练</th><th>N</th><th>D</th><th>6ND</th><th>报告的用量</th><th>反推每卡吞吐</th><th>占 BF16 峰值</th></tr>
+<tr><td>LLaMA 65B</td><td>65B</td><td>1.4T</td><td>$5.5\times10^{23}$</td><td>2048 张 A100，每卡 380 token/s，约 21 天</td><td>148 TFLOP/s</td><td>47%</td></tr>
+<tr><td>Llama 2 7B</td><td>7B</td><td>2T</td><td>$8.4\times10^{22}$</td><td>184,320 A100 卡时</td><td>127 TFLOP/s</td><td>41%</td></tr>
+<tr><td>Llama 2 70B</td><td>70B</td><td>2T</td><td>$8.4\times10^{23}$</td><td>1,720,320 A100 卡时</td><td>136 TFLOP/s</td><td>43%</td></tr>
+<tr class="hl"><td>Llama 3 405B</td><td>405B</td><td>15.6T</td><td>$3.79\times10^{25}$</td><td>$3.8\times10^{25}$ FLOPs，表 4 里每卡 380 到 430 TFLOP/s</td><td>380 到 430 TFLOP/s</td><td>38% 到 43%</td></tr>
+<tr><td>DeepSeek-V3</td><td>37B 激活</td><td>14.8T</td><td>$3.3\times10^{24}$</td><td>2.664M H800 卡时（预训练部分）</td><td>343 TFLOP/s</td><td>35%</td></tr>
+</table>
+<p class="tcap">A100 的 BF16 稠密峰值按 312 TFLOP/s，H100 和 H800 按 989 TFLOP/s。前三行出自 LLaMA 论文第 4 页和 Llama 2 论文表 2；Llama 3 出自其报告第 1 页和表 4；DeepSeek-V3 出自其报告表 1。DeepSeek-V3 是混合专家模型，6ND 里的 N 只能取每个 token 实际经过的 37B 激活参数，并且漏掉了注意力和路由的开销，所以反推的吞吐偏低；它的大部分矩阵乘用 FP8 做，FP8 峰值是 BF16 的两倍。</p>
+<p>这张表给了一个比任何单个数字都有用的经验：<b>实际吞吐稳定在 BF16 峰值的 35% 到 47% 之间</b>，换了三代硬件、四个团队都没跳出这个区间。这个比例叫 MFU（model FLOPs utilization）。剩下的五成多去了通信、流水线气泡、注意力等非矩阵乘运算，以及重算激活。预算时直接按 40% 打折，误差不会超过两成。</p>
+<p>拿一个整数做一次完整的估算。7B 模型训 2T token：$6\times7\times10^9\times2\times10^{12}=8.4\times10^{22}$。一张 H100 按 40% 的 MFU 每秒跑 $4\times10^{14}$ 次，需要 $2.1\times10^{8}$ 卡秒，约 5.8 万卡时。1024 张卡要 2.4 天，按 H800 每卡时 2 美元的租价（DeepSeek-V3 报告用的口径）是 12 万美元。同样的算法套到 DeepSeek-V3 上：报告里每训练一万亿 token 用 18 万 H800 卡时，2048 张卡 3.7 天；预训练 266.4 万卡时，加上长上下文扩展 11.9 万和后训练 0.5 万，合计 278.8 万卡时，乘 2 美元是 557.6 万美元。报告自己写明，这个数不含此前在结构、算法和数据上做的研究和消融实验。【文中有据，DeepSeek-V3 报告第 5 页、表 1】</p>
+<div class="bench">
+<p>第一版预算最常见的错，是拿峰值算力直接除。7B 模型 2T token，按 H100 的 989 TFLOP/s 算是 0.95 天，按 40% 的 MFU 是 2.4 天，按实际集群里的故障和重启再打九折是 2.7 天。三个数差了将近三倍。负责人第一件事是在目标集群上用目标形状的模型跑几百步，读出每卡每秒的 token 数，乘 $6N$ 再除以峰值，得到自己的 MFU；这个数低于 30%，通常是批太小、张量并行跨了节点，或者打开了不必要的激活重算。补丁是调并行配置（后面的显存一节会讲），代价是每换一次配置都要重新验证数值上的一致性：Llama 3 的团队就是在比较不同并行配置下的训练损失时，查出了几处数值问题，最后把跨微批次的梯度累加和数据并行的梯度归约都改成了 FP32。【文中有据，Llama 3 报告第 12 页】</p>
+</div>
+
+<h2>参数量和 token 数的配比</h2>
+<p>预算定了，接下来是怎么花：$C$ 固定时，$N$ 和 $D$ 只剩一个自由度。模型大一倍，能看的 token 就少一半。这个决定的输入是一组小模型实验，输出是两条幂律 $N^*(C)\propto C^{a}$ 和 $D^*(C)\propto C^{1-a}$，指数 $a$ 决定了预算增加时钱该往哪边放。</p>
+
+<h3>两条矛盾的幂律</h3>
+<p>2020 年，Kaplan 等人给出的答案是 $a=0.73$：算力每多 10 倍，模型变大 5.4 倍，数据只多 1.9 倍。这条规律主导了之后两年的大模型。GPT-3 是 175B 参数训 300B token，每个参数不到 2 个 token；Gopher 是 280B 参数，同样 300B token。</p>
+<p>2022 年，DeepMind 的 Hoffmann 等人用三种方法重新估计，得到 $a=0.50$、$0.49$、$0.46$：参数和数据应该同比例增长。按这个结论，Gopher 的预算应该训一个小 4 倍的模型、多看 4 倍的数据。他们训了这个模型，就是 Chinchilla：70B 参数，1.4T token，算力和 Gopher 相同，MMLU 达到 67.5%，比 Gopher 高出 7 个点以上。每个参数 20 个 token 这条经验规则就是从这里来的。【文中有据，Chinchilla 论文第 1 至 2 页、表 2】</p>
+<p>两份报告的数据、模型、优化器都相近，指数却差了 0.23。按 Porian 等人复现出的两条规律，在 Chinchilla 的预算 $5.88	imes10^{23}$ 上，最优模型一个是 3T 参数，一个是 77B，差 39 倍。这个差距的来源，直到 2024 年才被两组人分别查清楚，而且查出来的原因和 Chinchilla 自己的解释不一样。后面单独讲。先看配比是怎么从实验里读出来的。</p>
+
+<h3>isoFLOP 曲线</h3>
+<p>Chinchilla 的第二种方法最直观。固定一个算力，比如 $10^{20}$ FLOPs，训一排大小不同的模型，每个模型的训练 token 数由 $D=C/6N$ 决定。小模型看了很多数据，但容量不够；大模型容量够，但只看了很少的数据。最终损失对 $\log N$ 画出来是一个 U 形，谷底就是这个算力下的最优大小。换十个算力档位重复一遍，把谷底连起来，就得到 $N^*(C)$。</p>
+<p>第三种方法把所有实验点拟合进一个参数化的损失函数：</p>
+<p>$$L(\role{op}{N},\role{in}{D})=E+\frac{A}{\role{op}{N}^{\alpha}}+\frac{B}{\role{in}{D}^{\beta}}$$</p>
+<p>三项各有含义。$E$ 是文本本身的熵，模型和数据再多也降不下去；$A/N^\alpha$ 是有限模型容量带来的额外损失；$B/D^\beta$ 是有限数据带来的额外损失。在 $6ND=C$ 的约束下求最小值，得到 $N^*\propto C^{\beta/(\alpha+\beta)}$。下图用的是 Epoch AI 在 2024 年重新拟合的参数：$E=1.8172$，$A=482.01$，$B=2085.43$，$\alpha=0.3478$，$\beta=0.3658$。拖动滑块改变算力，看谷底往哪里走。</p>
+<div class="fk-fig" id="figIso"></div>
+<div class="fk-ctl" id="ctlIso"></div>
+<p class="fk-cap"><b>图 2</b>按 Chinchilla 数据重新拟合的损失面，在固定算力下画出的 isoFLOP 曲线。浅灰是 $10^{18}$ 到 $10^{26}$ 每个整数量级的曲线，绿色是滑块选中的算力，橙色圆点是它的谷底，灰色虚线连起所有谷底。空心点是几个真实模型在各自算力下的位置；它们用的数据和分词器各不相同，纵坐标只表示<b>如果用 Chinchilla 的数据</b>会落在哪里，不是它们的实际损失。读数行末尾的文字链接可以换成 Hoffmann 论文正文里四舍五入后的参数。</p>
+<p>拖的时候有三件事可以看见。第一，谷底沿一条斜率接近 1/2 的直线移动，每个参数对应的 token 数从 $10^{18}$ 时的二十几慢慢降到 $10^{26}$ 时的十六左右，几乎不变。第二，算力越大，U 形底部越平：在 $3.8\times10^{25}$ 处，模型大小偏离最优值 1.5 倍，损失只差千分之一左右。Llama 3 报告里正是用这一点来解释为什么最后选了 405B 而不是拟合给出的 402B。【文中有据，Llama 3 报告第 8 页】第三，GPT-3 和 Gopher 都落在谷底的右侧很远的地方，模型太大、数据太少；Llama 3 8B 落在左侧更远的地方，它是故意的，最后一小节会讲原因。</p>
+<p>把链接切到原文参数，曲线整体下移，谷底向左跑：$5.88\times10^{23}$ 处的最优比例从每参数 18 个 token 变成 93 个。同一组实验数据，只是参数抄错了位数，结论就差了五倍。这件事后面还要细说。</p>
+
+<h3>四处口径差异</h3>
+<p>Chinchilla 论文对 Kaplan 指数偏大的解释是学习率调度：Kaplan 对所有模型用同一个固定长度的余弦调度，训练中途截下来的损失偏高。这个解释流传最广，但 2024 年两项独立的复盘都没有支持它。</p>
+<p>Porian 等人在 Llama 式的训练框架里先复现出 Kaplan 的结果，然后一次只改一处口径，看指数怎么走。下图逐步重放他们的图 1。</p>
+<div class="fk-fig" id="figPorian"></div>
+<div class="fk-ctl" id="ctlPorian"></div>
+<p class="fk-cap"><b>图 3</b>四步修正下最优模型大小随算力的幂律。直线的位置由 Porian 等人图 1 各面板给出的指数 $a$ 和 Chinchilla 预算 $5.88\times10^{23}$ 处的最优大小确定，只画到他们实验覆盖的范围加上外推段；当前一步是绿色，之前几步退成浅灰。</p>
+<p>四步里影响最大的两步都和学习率无关。第一步是算力的记账方式：Kaplan 只计入非嵌入参数的计算量，漏掉了最后那个输出层。词表有五万，宽度只有几百的小模型，输出层的计算量占了总量的一大块，把它算进来，指数就从 0.835 降到 0.706。第二步是预热：Kaplan 对所有模型用同样长的预热，对小模型来说预热占了训练的一大截，小模型因此吃亏，最优点被推向大模型；把预热长度和模型大小挂钩，指数降到 0.602。匹配余弦调度的长度（也就是 Chinchilla 认为最关键的那一处）只把指数从 0.602 降到 0.571，影响最小。最后按模型大小分别调学习率、批大小和 AdamW 的 $\beta_2$，指数落到 0.497，和 Chinchilla 吻合，而这最后一步用的是<b>常数学习率</b>，完全没有衰减。【文中有据，Porian et al. 第 1 至 2 页、图 1】</p>
+<p>Pearce 和 Song 从另一个方向得到相近的结论：拿 Chinchilla 拟合出的损失面，在 Kaplan 当年的模型尺度（1k 到 1.5B 参数）上模拟一遍 Kaplan 的分析，只要改用非嵌入参数计数，就能得到 0.78 的局部指数，接近 Kaplan 的 0.73；改用总参数，得到 0.51。他们的解释是：小模型里嵌入参数占比大，按非嵌入参数计数会系统地扭曲小尺度上的斜率。【文中有据，Pearce &amp; Song 第 1 页、图 1】</p>
+<p>两组人给出的主因不完全相同，一组强调最后一层的计算量，一组强调参数的计数口径，但它们指向同一件事：<b>小实验和大实验的口径只要有一处不一致，外推出来的指数就会偏</b>。参数算不算嵌入，计算量算不算输出层，预热按步数还是按比例，这些在单次实验里都是无关紧要的约定，放进一条跨六个数量级的幂律里，就变成了几十倍的模型大小。</p>
+<div class="bench">
+<p>如果自己的 isoFLOP 实验给出的指数明显大于 0.5，先查三处，按代价从小到大：一，把参数量和计算量都换成包含嵌入和输出层的总数，重新拟合，这一步不用重跑任何实验；二，看最小那几个模型的预热占了总步数的多少，超过 10% 就按比例缩短后重跑最小的两三档；三，看每档的学习率是不是同一个值，是的话在最小和最大两档上各扫一次学习率。三步做完指数还偏大，才轮到怀疑数据或结构。代价是第三步最贵：Porian 等人为了这一步做了按模型大小的超参数缩放律，单独一组实验。【推断，依据：Porian et al. 第 2 至 3 节】</p>
+</div>
+
+<h3>第三种拟合里的四舍五入</h3>
+<p>Chinchilla 的第三种方法给出的指数是 0.46，比前两种的 0.50 和 0.49 小，置信区间却窄得出奇：0.454 到 0.455。2024 年，Epoch AI 的 Besiroglu 等人从论文的图 4 里把散点按坐标和颜色逐个读出来，重建了 240 个实验点，重新拟合，得到了上面图 2 用的那组参数。差别出在两处。【文中有据，Besiroglu et al. 第 2 至 5 页】</p>
+<p>一处是四舍五入。论文正文写的是 $\beta=0.28$，TeX 源文件的注释里是 $0.2849$。在 $D=10^{11}$ 时，$D^{0.2849}$ 和 $D^{0.28}$ 差了 $10^{11\times0.0049}\approx1.13$ 倍，数据项被高估 13%，这足以让拟合的残差整体偏离零点。另一处是优化器提前停止：原作者对 Huber 损失求了平均而不是求和，损失的尺度太小，L-BFGS 在远没收敛时就停了；自助法（bootstrap）重抽样时同样停在初始值附近，于是置信区间窄到要六十万次实验才可能达到的程度，而他们实际做了四百多次。原作者事后确认了这两点。</p>
+<p>按原文未四舍五入的参数，在 Chinchilla 的预算上求最优比例，得到每参数 59 个 token；按正文四舍五入后的参数是 93 个；Epoch 的重拟合是 18 个，和前两种方法、也和 Chinchilla 实际用的 20 个一致。所以通行的 20 这个数是对的，只是论文里第三种方法的那组参数不能拿来用。</p>
+<p>同样的事情在 Llama 3 报告里又出现了一次，规模更小但更直接。正文写 $N^*(C)=AC^{\alpha}$，$(\alpha,A)=(0.53,0.29)$，外推到 $3.8\times10^{25}$ 应该训 16.55T token。这里的 $N^*$ 指的是 token 数，不是参数量，记号和本文相反。按正文的两个数代进去，得到的是 10.5T；图 3 图例里写的是 $\alpha=0.537$、$A=0.299$，代进去是 16.3T，才和 16.55T 对得上。指数第三位小数差 0.007，外推四个半数量级之后，结果差了 1.6 倍。另外，按 6ND，402B 参数训 16.55T token 需要 $4.0\times10^{25}$，比预算多出 5%，报告没有交代这里的计算量口径。【文中有据，Llama 3 报告第 7 至 8 页；推算是本文的】</p>
+<p>这两处放在一起是一条可以带走的规矩：<b>外推的距离有多少个数量级，指数就需要多少位有效数字</b>。报告缩放律时写两位小数，对读者来说是一个结论；对要用它做决定的人来说，是一个丢了信息的参数。</p>
+
+
+<h3>为推理多付的训练</h3>
+<p>回到图 2 里那个落在谷底左侧很远的点。Llama 3 8B 训了 15T token，每个参数 1875 个，是 Chinchilla 比例的九十多倍。按图 2 用的损失面，同样的算力 $7.2\times10^{23}$ 本可以训一个 80B 左右的模型，损失低 0.05 nat。Meta 是在知情的情况下做的这个选择。</p>
+<p>原因在于 Chinchilla 的问题问错了对象。它求的是<b>训练</b>算力固定时损失最低的配置，但一个模型训练一次，要被调用成千上万次。推理每生成一个 token 大约花 $2N$ 次运算。模型一生的总花费是：</p>
+<p>$$C_{\text{总}}\approx 6\,\role{op}{N}\,\role{in}{D_{\text{训}}}+2\,\role{op}{N}\,\role{out}{D_{\text{推}}}$$</p>
+<p>推理量 $D_{\text{推}}$ 越大，第二项越占主导，最优点就越往小模型、多数据的方向移。Sardana 等人给过一个具体的例子：目标是 13B Chinchilla 最优模型的质量，预计一生要推理 2T token，那么改训一个 7B 模型、多喂数据到同样的损失，总算力能省 $1.7\times10^{22}$，约 17%。他们还训了 47 个 150M 到 6B 的模型，把每参数 token 数从 10 一路拉到 10000，模型质量一直在提高，没有找到饱和点。【文中有据，Sardana et al. 第 1 至 2 页、图 1】</p>
+<p>这就是为什么后来的开放模型都远远越过了 20：MiniCPM 在自己的实验里得到的平均最优比例是 192（报告第 8 页），OLMo 2 7B 是 4.05T token 对 7.3B 参数，约 555，DeepSeek-V3 按激活参数算是 400，Kimi K2 是 15.5T token 对 32B 激活参数，约 480。【文中有据】走得最远的是 Qwen3：从 0.6B 到 235B 的整个家族都用同一份约 36T token 的语料预训练，0.6B 那个模型每个参数分到六万个 token，是 Chinchilla 比例的三千倍。【文中有据，Qwen3 报告第 2 至 3 页】小模型的用途是被大量部署，训练多花的钱很快就从推理上省回来；何况家族里的小模型还会用大模型做强到弱的蒸馏，数据量对它来说已经不是瓶颈。一个可以手算的判断标准是：如果预计推理 token 总量超过训练 token 量的几倍，就应该往小模型多数据的方向走，走多远由上面那个式子的最小值决定。</p>
+<div class="bench">
+<p>过度训练的症状不是损失不降，而是降得越来越慢：训练损失对 $\log D$ 的斜率一路变小，团队会在中途开始怀疑数据用完了，或者学习率衰减得太早。先跑的诊断是拿同一份数据训一个大两倍的模型到同样的 FLOPs，比较两条曲线在同一算力处的差距；这个差距和损失面预测的一致，说明只是正常的边际递减，不是出了问题。补丁是在训练后期换上更高质量的数据，也就是后面要讲的退火；代价是这部分数据的质量必须单独验证，否则会把一个原本健康的训练带偏。</p>
+</div>
+
+<h2 id="data">从网页快照到训练语料</h2>
+<p>模型吃什么，比模型长什么样更费人力。原料是公开网页的快照（Common Crawl 每一两个月发布一次，每次几十亿个网页）、代码仓库、书籍、论文和各种专门收集的数据；输出是一份去重、过滤、按比例混好的 token 序列。这一步占用的人力通常比模型结构多得多，而它的每一个子决定都有同一个难处：<b>好数据的定义，只能用训出来的模型来检验</b>。所以数据团队的标准动作是消融：固定一个小模型，比如 FineWeb 用的 1.71B 参数训 28B 到 350B token，只换数据处理的一个环节，比较下游任务的平均分。</p>
+
+<h3>抽取与基础过滤</h3>
+<p>Common Crawl 同时提供原始网页（WARC）和它自己抽好的纯文本（WET）。FineWeb 发现 WET 里留了太多导航栏和菜单，改用 trafilatura 从 WARC 重新抽取，同样的训练量下分数明显更高。之后是三道基础过滤：按网址黑名单去掉成人网站；用 fastText 的语种分类器只留英文，得分阈值 0.65；套用 MassiveText 的质量和重复度规则。对 96 个快照做完这三步，用 GPT-2 分词器计数，还剩约 36T token。【文中有据，FineWeb 第 3 至 4 页、图 2】</p>
+<p>Llama 3 报告里有一个反常识的细节：他们发现以网页为主的模型训练在<b>保留 Markdown 记号</b>的文本上效果更差，于是把所有 Markdown 标记都删掉了。【文中有据，Llama 3 报告第 5 页】这说明抽取格式本身是一个超参数：同一段内容带不带格式符号，模型学到的分布不一样，而下游评测几乎全是纯文本。</p>
+
+<h3>去重的反直觉结果</h3>
+<p>网页里有大量重复：镜像站、模板页、转载。去重的标准工具是 MinHash：把每篇文档切成 5 个词一组的片段，用 112 个哈希函数各取一个最小值，得到一个 112 维的签名；再把签名分成 14 个桶，每桶 8 个值，只要有一个桶的 8 个值全部相同，两篇文档就算重复。这个分法对应一条 S 形的判定曲线。两篇文档相似度（Jaccard 系数）为 $s$ 时，单个桶全同的概率是 $s^8$，14 个桶里至少一个全同的概率是：</p>
+<p>$$P(s)=1-(1-s^{8})^{14}$$</p>
+<p>代几个数：$s=0.6$ 时 $P=0.21$，$s=0.75$ 时 $P=0.77$，$s=0.9$ 时 $P\approx1$。曲线的陡坡落在 0.75 附近，这就是 FineWeb 说的<b>针对至少 75% 相似的文档</b>。【文中有据，FineWeb 第 5 页；数值是本文按公式算的】增加每桶的哈希个数，陡坡右移、判得更严；增加桶数，陡坡左移、判得更松。112 个哈希的总预算固定时，这两个旋钮互相牵制。</p>
+<p>直觉上去重越彻底越好。FineWeb 的第一版就是这样做的：从最新的快照往前，每个快照都和之前处理过的所有快照一起去重。做完只剩 4T token，最老的那些快照被删掉了九成。用这份数据训模型，结果和不去重几乎一样，远低于 RefinedWeb。</p>
+<p>他们接着做了一个漂亮的对照。在 2013 年 48 周那个老快照里，被全局去重<b>保留下来</b>的 31B token 训一个模型；被<b>删掉</b>的约 460B token 只在快照内部去重后得到 171B，再训一个模型。结果被删掉的那部分训出来的模型更好。人工翻看之后发现，留下来的一成里广告、关键词堆砌和格式混乱的页面更多。【文中有据，FineWeb 第 5 至 6 页、图 3 和图 4】</p>
+<p>道理在去重留下了什么。好页面会被转载、被镜像、跨快照反复出现，所以在全局去重里成片地被判为重复删掉，只剩一份；垃圾页面往往每次抓取都不一样，反而每份都是唯一的，全部留下。全局去重于是把垃圾在剩余数据里的比例放大了。改成每个快照内部单独去重，结果是 20T token，训出来的模型追平了 RefinedWeb。作者的假设是：去重的主要收益来自删掉那些在每个快照里都有成千上万份副本的巨大重复簇，而重复次数在一百以下的小簇，删掉反而有害。</p>
+<div class="fk-fig" id="figFunnel"></div>
+<div class="fk-ctl" id="ctlFunnel"></div>
+<p class="fk-cap"><b>图 4</b>FineWeb 的数据流，条的长度正比于剩下的 token 数（GPT-2 分词器）。逐步往下看；第三步是被放弃的全局去重，用橙红标出。最后的 15T 是 FineWeb，1.3T 是再经过教育质量分类的 FineWeb-Edu。数字出自 FineWeb 论文第 4 至 9 页。</p>
+<p>值得对照的是 Llama 3 的做法：他们恰恰做了全局的文档级 MinHash 去重，另外还做了网址级去重（同一网址只留最新的版本）和很激进的行级去重（在每 3000 万篇文档的桶里，出现超过 6 次的行全部删掉）。报告承认行级去重删掉的不只是导航栏和 cookie 提示，也有高频的好文本，但实验上效果明显更好。【文中有据，Llama 3 报告第 5 页】两家的结论不矛盾：Llama 3 在去重之后还有好几层基于模型的质量过滤，全局去重放大的那部分垃圾会在后面被筛掉；FineWeb 的全局去重实验发生在质量过滤之前。【推断，依据：两份报告的处理顺序】</p>
+
+<h3>质量分类器</h3>
+<p>启发式规则能删掉明显的垃圾，删不掉写得通顺但没有信息量的页面。这一层要靠分类器，而分类器的标注本身也越来越多地由大模型来做。</p>
+<p>FineWeb-Edu 是一个公开得很完整的例子。他们让 Llama-3-70B-Instruct 给 46 万个网页的教育价值打 0 到 5 分，用的是逐条加分的提示词，并且特意要求按中小学的知识水平来评，避免模型偏爱 arXiv 摘要一类的高度专业文本。然后在 Snowflake-arctic-embed-m 嵌入模型上训一个线性回归头，用 41 万条标注训练、5 万条验证。阈值取 3 分时，验证集 F1 是 82%。把这个分类器跑遍 15T token 用了 6000 个 H100 卡时，最后留下 1.3T token。1.71B 模型训 350B token，MMLU 从 33% 到 37%，ARC 从 46% 到 57%。【文中有据，FineWeb 第 8 至 9 页】</p>
+<p>代价写在同一段里：阈值 3 是在知识类任务和 HellaSwag 这类常识续写任务之间折中出来的。教育类过滤偏向教科书式的文本，会损失口语、叙事和网络上的日常知识。Llama 3 用了两种分类器：便宜的 fastText，判断一个网页会不会被维基百科引用；贵一些的 DistilRoberta，学 Llama 2 对网页质量的判断。代码和数学另有专门的分类器和抽取流程，因为它们的 token 分布和自然语言差得太远。【文中有据，Llama 3 报告第 5 页】</p>
+
+<h3>好文本不够用之后的改写</h3>
+<p>过滤越严，留下的好数据越少。FineWeb-Edu 从 15T 里只留下 1.3T；而 2025 年的旗舰模型要喂 15T 到 36T token。缺口只有两种补法：把好数据重复多看几遍，或者把好数据换个说法再写一遍。</p>
+<p>Kimi K2 的报告把这两种办法放在一起比过。他们拿维基百科类的知识文本，在一个早期检查点上试了三种用法，用 SimpleQA（一个考事实问答的评测）打分：原文重复 10 遍是 23.76；改写一次、再把改写版重复 10 遍是 27.39；改写 10 次、每个版本只看一遍是 28.94。【文中有据，Kimi K2 报告第 5 页、表 1】同样的知识，用十种说法各读一遍，比同一种说法读十遍记得牢。这和人背书的经验一致：换着角度讲同一件事，比把同一页念十遍有用。</p>
+<p>改写不是随便让模型复述。K2 的做法有三层：提示词要求换风格、换视角但忠实于原文；长文档切成段，逐段改写，每段都看得到前面已经改好的部分，保证全文连贯；改写完逐段和原文比对语义，偏离的丢掉。报告自己也保留了警惕：每份语料最多改写两次，并且承认合成数据在规模放大后会不会带来幻觉和毒性，还需要更多研究。【文中有据，Kimi K2 报告第 5 至 6 页】</p>
+<p>这里的取舍和蒸馏一样：改写用的模型有自己的口头禅和偏好，它们会随着改写数据进入下一代模型的预训练。后面讲<b>说人话</b>的那一节会回到这件事。【推断】</p>
+
+<h3>配比、退火与给数据估价</h3>
+<p>各个来源清洗完之后，要决定按什么比例混。Llama 3 最终的配比是：通用知识约 50%，数学和推理 25%，代码 17%，多语言 8%。这个配比本身也是用小模型的缩放律实验选出来的：在一个候选配比上训几个小模型，预测大模型在这个配比上的表现，换一个配比重复，挑出候选后再训一个更大的模型验证。他们还训了一个知识类别分类器，把网页上过度代表的类别（比如艺术和娱乐）降采样。【文中有据，Llama 3 报告第 6 页】</p>
+<p>配比不是一成不变的。Llama 3 在训练过程中改过几次：提高非英语数据的比例，提高数学数据的比例，在后期加入更新的网页数据把知识截止时间往后推，把事后发现质量较差的子集降采样。【文中有据，Llama 3 报告第 14 页】</p>
+<p>新数据源层出不穷，不可能每来一份小数据集就做一套缩放律实验。Llama 3 用了一个便宜得多的办法：拿一个训到一半的 Llama 3 8B，在 40B token 上把学习率线性降到 0，混入 30% 的新数据集和 70% 的默认配比，看下游分数涨多少。学习率降到 0 的这一段叫<b>退火</b>，模型在这一段对数据最敏感，所以小剂量的好数据能被看出来。用同样的办法，他们发现在退火里加入 GSM8k 和 MATH 的训练集，8B 模型在这两个验证集上分别涨 24.0% 和 6.4%，405B 几乎没有变化。【文中有据，Llama 3 报告第 6 页】</p>
+<p>这个结果有两种读法。报告的读法是 405B 的上下文学习能力足够强，不需要领域内样本。另一种读法是：退火对小模型的帮助很大一部分来自学会了题目的格式，大模型本来就会。后一种读法意味着，在 8B 上用退火给数据估价，会系统地高估格式类数据对旗舰模型的价值。【推断，依据：两个模型增益的差距】</p>
+<p>OLMo 2 把这一套做成了固定的两段式：前 90% 到 95% 的算力是预训练，用以网页为主的数据；最后 5% 到 10% 叫中期训练（mid-training），学习率线性降到 0，换成上采样后的高质量网页、精选的非网页数据和专门补数学的合成数据。7B 模型的中期训练做三次，每次 50B token、数据顺序不同，最后把三个模型的权重平均。【文中有据，OLMo 2 第 6 至 7 页】</p>
+
+<h3>测试集污染</h3>
+<p>预训练语料来自全网，评测集也在网上。Llama 3 用 8-gram 重叠来判断一道评测题是否被污染：题目里有足够比例的 token 落在某个在训练语料中出现过的 8-gram 里，就算污染；这个比例的阈值对每个评测集分别选，选那个让<b>干净子集和全集分数差距最大</b>的值。结果很不均匀：HellaSwag 有 85% 的题目被判为污染，估计带来约 14.8 个点的虚高；PiQA 55%，约 8 个点；Natural Questions 也有 52% 被判为污染，但分数几乎不受影响；GSM8K 41%，影响在 0 到 1.3 个点之间。【文中有据，Llama 3 报告第 33 至 34 页、表 15】</p>
+<p>污染的比例和它造成的虚高不是一回事。Natural Questions 的题目短、答案是常见事实，在网上出现过不代表模型背下了答案；HellaSwag 是续写题，原文出现过就等于见过标准答案。读一份评测报告时，该问的不是污染了多少，而是在干净子集上的分数是多少。</p>
+<p>OLMo 2 报告里有一个很诚实的脚注：预训练完之后发现数学能力差，他们从 GSM8K 的 1319 道测试题里抽了 200 道当开发集来调中期训练的数据，之后只在剩下的 1119 道上报告成绩。【文中有据，OLMo 2 第 7 页脚注 6】这种做法在业界很普遍，只是很少被写出来。只要开发集和报告集严格分开，它是合理的；危险在于反复看同一份测试集来调数据，调到第十次时，这份测试集已经变成了训练信号的一部分。</p>
+<div class="bench">
+<p>数据这一步最典型的失效，是一个在小模型消融里胜出的处理，放到大模型上没有效果甚至变差。症状是旗舰模型在某类任务上的分数低于缩放律的预测。先跑的诊断是在同一份数据上补一个中间尺度（比如 7B）的点，看偏差从哪个尺度开始出现；如果小模型和中模型都符合预期，问题多半在数据的总量上：一个过滤规则在 350B token 的消融里留下的数据足够用，按同样的保留率放到 15T 的需求上，高质量部分可能要重复好几遍。补丁是降低过滤阈值或者混入更多来源，代价是平均质量下降。Muennighoff 等人的实验给过一个参考：同一份数据重复 4 个 epoch 以内，和用全新数据几乎没有差别，再往上收益快速递减。【推断，依据：FineWeb-Edu 阈值的讨论；重复数据的结论出自 Muennighoff et al. 2023】</p>
+</div>
+
+<h2 id="tok">分词器</h2>
+<p>分词器看上去是个小部件，它决定了一个 token 是什么，因此也决定了前面所有关于 token 数的预算具体指多少文字。现在的主流做法是字节级 BPE（byte-pair encoding）：从 256 个字节出发，在训练语料里反复找出现次数最多的相邻一对，合并成一个新 token，记下这条合并规则，直到词表达到目标大小。编码时按规则的先后顺序重放这些合并。</p>
+<p>下面这个分词器就是这样训出来的，训练语料是本页的正文，最多 1500 次合并。拖动滑块，看三行文字的切分方式怎么随合并次数变化。</p>
+<div class="fk-fig" id="figBpe"></div>
+<div class="fk-ctl" id="ctlBpe"></div>
+<div class="fk-fig" id="figBpeCurve"></div>
+<p class="fk-cap"><b>图 5</b>在本页正文上训练的字节级 BPE。上面三行是切分结果，相邻 token 用深浅两种底色区分；橙红的小块是一个汉字被切开后剩下的单个字节，显示为十六进制。下面的曲线是整份正文每个 token 平均对应的字符数，橙色点是滑块当前的位置。</p>
+<p>滑块拖到最左边时，每个字节是一个 token：英文一个字母一个 token，汉字在 UTF-8 里占三个字节，一个汉字变成三个橙红的碎块。往右拖，最先被合并的是最常见的字节对，在这份以中文为主的语料里，最先出现的合并几乎都是把汉字的三个字节拼回一个字。再往右，常用词和词组开始成为单个 token。英文那一行的变化慢得多，因为这份语料里英文很少；代码那一行几乎不动。分词器在什么数据上训，就对什么数据压缩得好，这是这张图最直接的结论。</p>
+<p>这个结论在大模型上有具体的代价。Llama 2 的词表是 32K，Llama 3 换成了 128K：其中 100K 来自 OpenAI 的 tiktoken，另加 28K 专门给非英语语言的 token。在一份英文样本上，平均每个 token 对应的字符数从 3.17 升到 3.94。报告的说法是，同样的训练算力能读更多的文字；加的 28K 非英语 token 改善了压缩率和下游表现，对英文的切分没有影响。【文中有据，Llama 3 报告第 7 页】按字符算，3.94 比 3.17 多 24%，同样 15T token 的预算，相当于多读了 24% 的文本。</p>
+<p>大词表的代价在嵌入层上，可以手算。Llama 3 8B 的实际词表是 128,256（表 3 写的 128,000 是约数，多出的 256 个是特殊 token），宽度 4096，输入嵌入是 $128256\times4096=5.25$ 亿个参数，输出层不和它共享，又是 5.25 亿。合计 10.5 亿，占 8.03B 的 13%。同样的词表放到 405B 上只占 1%。所以词表大小对小模型是一个昂贵的决定，对大模型几乎免费。OLMo 2 在 1B 模型、100B token 上对比了新旧两种分词器，新的略好，同时说明在这个规模上大词表其实处于略微不利的位置，预期收益在更大的模型上才会显出来。【文中有据，OLMo 2 第 6 页、表 2】</p>
+<p>分词器还有一个容易被忽略的后果：不同分词器下的 token 数不能直接比。DeepSeek-V3 的 14.8T 是在它自己 128K 词表下的计数（报告第 22 页明确写了 in our tokenizer），FineWeb 的 15T 是 GPT-2 分词器下的计数，Llama 3 的 15.6T 又是另一套。跨报告比较数据量时，换算成字节或字符才有意义。</p>
+<div class="bench">
+<p>分词器第一版最常见的问题出在数字和空白上。按普通 BPE 训，常见的年份和整数会被合成一个 token，而罕见的数字被切得七零八落，模型做算术时看到的是一堆不规则的块。现在的做法是在预切分阶段就把连续数字按每 1 到 3 位切开（本页的分词器也是这样做的），保证同一个数字不论出现频率高低都按同样的方式切。另一个问题是代码里的缩进：连续空格如果不单独处理，会和后面的关键字合成成千上万种组合，白白占用词表。诊断很便宜，拿一份代码和一份带数字的文本，打印切分结果看一眼就够；代价是这些预切分规则要在训练分词器之前就定下来，之后改就要重训整个模型。</p>
+</div>
+
+<h2 id="arch">一个 8B 模型的零件清单</h2>
+<p>结构反而是最没有悬念的一步。和数据比起来，这一步在过去三年里变化很小。Llama 3 的报告直说它用的是标准的稠密 Transformer，和 Llama、Llama 2 没有明显区别，性能的提升主要来自数据质量、多样性和训练规模。【文中有据，Llama 3 报告第 6 页】结构上的决定于是变成了一张清单：每一项都有一个默认值，偏离默认值需要理由。最好的读法是把一个具体的模型拆开，数一数每个零件有多少参数。</p>
+<table class="t">
+<tr><th></th><th>8B</th><th>70B</th><th>405B</th></tr>
+<tr><td>层数</td><td>32</td><td>80</td><td>126</td></tr>
+<tr><td>宽度 $d$</td><td>4,096</td><td>8,192</td><td>16,384</td></tr>
+<tr><td>前馈层宽度</td><td>14,336</td><td>28,672</td><td>53,248</td></tr>
+<tr><td>注意力头 / KV 头</td><td>32 / 8</td><td>64 / 8</td><td>128 / 8</td></tr>
+<tr><td>峰值学习率</td><td>$3\times10^{-4}$</td><td>$1.5\times10^{-4}$</td><td>$8\times10^{-5}$</td></tr>
+</table>
+<p class="tcap">Llama 3 报告表 3。三个模型共用：SwiGLU 激活，128K 词表，RoPE 的基频 $\theta=500{,}000$。</p>
+<div class="fk-fig" id="figParts"></div>
+<div class="fk-ctl" id="ctlParts"></div>
+<p class="fk-cap"><b>图 6</b>Llama 3 8B 的参数，逐层拆开。条的长度正比于参数量。第一步是整个模型，第二步拆成嵌入、32 个块和输出层，第三步把一个块拆成七个矩阵，最后两步换成 70B 和 405B，看各部分的比例怎么变。数字按表 3 的形状逐项相乘得到，总数和 Meta 公布的 8.03B、70.6B、405B 一致。</p>
+<p>拆开之后有三个数值得记住。一个块里，前馈层（三个矩阵，各 $4096\times14336$）占 1.76 亿，注意力（四个矩阵）只占 4200 万，前馈层是注意力的 4.2 倍；所以说一个 Transformer 的参数主要在前馈层里，注意力只是很小的一部分。8B 的嵌入和输出层合计 10.5 亿，占 13%，到 405B 降到 1%：这就是上一节说的大词表对小模型贵、对大模型便宜。K 和 V 的投影矩阵各只有 Q 的四分之一，这是分组查询注意力（GQA）的结果：32 个查询头共用 8 组键和值。</p>
+<p>GQA 省下的不是参数，而是推理时的显存。生成每一个 token，都要为它在每一层存下 K 和 V，供之后的 token 查询。8B 模型每个 token 每层存 $2\times8\times128$ 个数，按 2 字节算是 4 KB，32 层是 128 KB。上下文 128K 时，一条序列的 KV 缓存就是 16 GiB；如果 32 个头都有自己的 K 和 V，是 64 GiB，一张 80 GB 的卡装不下几条。405B 每个 token 是 504 KB，128K 上下文要 63 GiB。DeepSeek-V3 换了一条路，用多头潜在注意力（MLA）把 K 和 V 压进一个 512 维的潜在向量，再加 64 维的位置部分，每个 token 每层只存 576 个数，61 层合计约 70 KB。【文中有据，表 3、DeepSeek-V3 报告第 22 页；字节数是本文按 BF16 算的】</p>
+<p>清单上其余几项，每一项都对应一种第一版会遇到的失效：</p>
+<table class="t left">
+<tr><th>选择</th><th>业界默认</th><th>它在防的失效</th></tr>
+<tr><td>归一化的位置</td><td>放在每个子层的输入端（Pre-norm），用 RMSNorm</td><td>归一化放在残差相加之后（Post-norm）时，初始化那一刻靠近输出的几层梯度最大，不加很长的学习率预热就会发散。放到子层输入端，残差主干上只剩加法，梯度尺度沿深度基本均匀</td></tr>
+<tr><td>前馈层</td><td>SwiGLU，三个矩阵，宽度约 $3.5d$</td><td>门控让前馈层在同样参数量下损失更低。宽度不是 $4d$：三个矩阵要和两矩阵的 $4d$ 参数量相当，应该是 $\tfrac{8}{3}d$；Llama 3 在官方代码里再乘 1.3 并取 1024 的整数倍，得到 14336，报告没有写这一步</td></tr>
+<tr><td>位置编码</td><td>RoPE，基频调大到 $5\times10^5$</td><td>基频 $10^4$ 时最低频的旋转周期只有几万个位置，长上下文时远处位置的编码彼此难以区分；调大基频是给后面的长上下文阶段留余地</td></tr>
+<tr><td>注意力掩码</td><td>拼在同一条序列里的不同文档互相看不见</td><td>报告说这在普通预训练里影响有限，在超长序列的继续训练里很重要：一条 128K 的序列可能由几十篇无关文档拼成</td></tr>
+<tr><td>QK 归一化、z-loss</td><td>OLMo 2 采用，Llama 3 没有</td><td>注意力 logit 和输出 logit 随训练无限增长，导致损失尖峰和发散；后面的稳定性一节细讲</td></tr>
+</table>
+<p class="tcap">出处：Llama 3 报告第 6 至 7 页；OLMo 2 第 12 页；前馈层宽度的取整规则来自 Llama 3 官方仓库里 8B 模型的 <code>params.json</code>（<code>ffn_dim_multiplier</code> 为 1.3，<code>multiple_of</code> 为 1024），按 $\lceil 1.3\times\lfloor\tfrac{2}{3}\cdot4\cdot4096\rfloor/1024\rceil\times1024=14336$ 可以验算。</p>
+<p>混合专家（MoE）是清单之外唯一的大分叉。DeepSeek-V3 的 61 层里，除了前 3 层，每层的前馈层换成 1 个共享专家加 256 个路由专家，每个专家的隐藏宽度 2048，每个 token 只激活其中 8 个。总参数 671B，每个 token 只经过 37B。计算量按 37B 算，显存按 671B 算，这就是它能用 2048 张卡训一个 671B 模型的原因。代价是路由：专家之间负载不均，有的专家被挤爆、有的闲置。DeepSeek-V3 的做法是给每个专家的路由打分加一个偏置项，按负载动态调整，更新速度在前 14.3T token 是 0.001，最后 500B token 设为 0；序列内的平衡损失权重只有 0.0001，只防极端情况。【文中有据，DeepSeek-V3 报告第 22 至 23 页】</p>
+
+<p>到 2025 年，前沿的开放模型几乎全是这条分叉上的。Kimi K2 总参数 1.04T，每个 token 激活 32B；它把专家数从 DeepSeek-V3 的 256 个加到 384 个，每次仍只激活 8 个，稀疏度 48。报告给的理由是他们自己的缩放实验：激活参数固定时，专家越多、越稀疏，损失越低。代价落在推理上，所以 K2 把注意力头从 DeepSeek-V3 的 128 个减到 64 个，抵掉一部分开销。【文中有据，Kimi K2 报告第 7 页】Qwen3 的旗舰是 235B 总参数、22B 激活。稠密模型在大尺度上已经很少见了。</p>
+<p>稀疏化的下一站是注意力。DeepSeek-V3.2 相对上一版只改了一处结构：加入 DeepSeek 稀疏注意力（DSA）。一个很小的<b>闪电索引器</b>先给每个查询 token 和之前所有 token 打一个粗略的相关分，只挑出分数最高的 2048 个，再在这 2048 个上做完整的注意力。这个改动不是从头训的，而是在已有模型上继续训练接进去：先用一小段预热只训索引器，让它学会模仿原来的注意力分布，再放开整体训练。【文中有据，DeepSeek-V3.2 报告第 3 至 4 页】上下文是 128K 时，原本每个 token 要看十几万个位置，现在只看两千个，长上下文推理的代价因此大幅下降；报告在标准和长上下文评测上都没有看到明显退化。</p>
+
+<h2 id="par">显存账与四种并行</h2>
+<p>模型定了，下一个问题很具体：几千张卡，每张 80 GB，怎么把模型和训练状态摆上去。输入是模型形状、序列长度、批大小和集群的网络拓扑，输出是一组并行度：张量并行（TP）、上下文并行（CP）、流水线并行（PP）和数据并行（DP）各取多少。</p>
+<p>先算一张卡要装什么。混合精度训练里，每个参数要存 BF16 的权重 2 字节、BF16 的梯度 2 字节，以及优化器状态：FP32 的主权重、Adam 的一阶矩和二阶矩，各 4 字节，共 12 字节。合计每个参数 16 字节。ZeRO 论文的例子是一个 7.5B 模型，光这些就要 120 GB。【文中有据，ZeRO 第 8 页】Llama 3 8B 是 128 GB，比一张 H100 的 80 GB 还多。这还没算激活：每一层的前向结果要留到反向时用，按 Korthikanti 等人 2022 年的估算，一层大约要 $34\,s\,b\,d$ 字节（$s$ 是序列长度，$b$ 是每卡的序列数，使用 FlashAttention 时注意力矩阵本身不存）。8B 模型、8192 的序列、每卡 1 条，32 层是 36 GB。</p>
+<p>四种并行各自切掉其中的一块：</p>
+<ul>
+<li><b>数据并行</b>：每张卡处理不同的数据。朴素的数据并行在每张卡上存完整的 16 字节每参数；ZeRO（以及 PyTorch 的 FSDP）把优化器状态、梯度、权重依次分摊到 $N_d$ 张卡上，第三档时每卡只剩 $16N/N_d$ 字节，代价是每步都要把权重收集回来，通信量增加一半。</li>
+<li><b>张量并行</b>：把每个矩阵按行或列切到几张卡上，权重和激活都按切分数缩小。每一层都要做一次全归约，通信最频繁，所以只放在一台服务器的 8 张卡里，走 NVLink。</li>
+<li><b>流水线并行</b>：按层切，第一组卡算前几层，交给下一组。通信只在相邻两段之间，可以跨机器；代价是气泡：第一个微批次进流水线时后面的卡在等，最后一个出流水线时前面的卡在等。</li>
+<li><b>上下文并行</b>：把一条长序列切成几段放在不同的卡上，注意力需要的 K 和 V 再收集起来。只在长上下文阶段打开。</li>
+</ul>
+<p>拖动下图的滑块，改变模型大小，看每种方案下单卡要装多少。</p>
+<div class="fk-fig" id="figMem"></div>
+<div class="fk-ctl" id="ctlMem"></div>
+<p class="fk-cap"><b>图 7</b>不同并行方案下每张卡的显存。四种颜色依次是权重、梯度、优化器状态和激活；竖线是 80 GB。模型状态按每参数 16 字节精确计算；激活按 $34\,s\,b\,d$ 每层估算（序列 8192、每卡 1 条），模型的层数和宽度按 Llama 3 的长宽比从参数量反推，所以激活一栏是<b>示意</b>。超出画幅的条在右端标出实际总量。</p>
+<p>拖到 8B 可以看到，朴素数据并行已经装不下，主要是 12 字节的优化器状态；ZeRO 第一档把它分掉，就只剩激活这一大块。拖到 70B，权重和梯度本身就超过了一张卡，只能连权重一起分摊（ZeRO 第三档或 FSDP），或者用张量并行把每一层切开。拖到 405B，任何单一方案都不够，需要把四种组合起来。</p>
+<p>Llama 3 405B 的实际配置是这样的：</p>
+<table class="t">
+<tr><th>卡数</th><th>TP</th><th>CP</th><th>PP</th><th>DP</th><th>序列长度</th><th>每 DP 组批大小</th><th>每批 token</th><th>每卡 TFLOP/s</th><th>MFU</th></tr>
+<tr><td>8,192</td><td>8</td><td>1</td><td>16</td><td>64</td><td>8,192</td><td>32</td><td>16M</td><td>430</td><td>43%</td></tr>
+<tr><td>16,384</td><td>8</td><td>1</td><td>16</td><td>128</td><td>8,192</td><td>16</td><td>16M</td><td>400</td><td>41%</td></tr>
+<tr><td>16,384</td><td>8</td><td>16</td><td>16</td><td>8</td><td>131,072</td><td>16</td><td>16M</td><td>380</td><td>38%</td></tr>
+</table>
+<p class="tcap">Llama 3 报告表 4。</p>
+<p>每一列都可以手算核对：$8\times1\times16\times64=8192$，$8\times16\times16\times8=16384$。三行的每批 token 数都是 16M，卡数翻倍之后数据并行组翻倍，每组分到的序列就减半，矩阵乘变小，MFU 从 43% 降到 41%；报告把这一点归因于此。长上下文那一行把 DP 从 128 砍到 8，腾出 16 倍给上下文并行。</p>
+<p>四个维度的排列顺序是 [TP, CP, PP, DP]，从内到外，按通信需求从高到低：TP 每层通信，放在服务器内；DP（实际是 FSDP）通信最少，而且可以异步预取权重，放在最外层，跨越带宽只有 1:7 超额订阅的集群顶层网络。这套集群有 24K 张卡，每 3072 张卡组成一个内部全带宽的 pod，pod 之间带宽不足，并行配置和作业调度都按拓扑来安排，尽量不让通信跨 pod。【文中有据，Llama 3 报告第 9 至 12 页】</p>
+<div class="bench">
+<p>第一版的症状通常是显存溢出，或者为了不溢出打开了全量的激活重算，MFU 掉到 30% 以下。负责人先做的事是写一个显存估算器：把上面的每一项按并行配置逐个算出来，和实测的峰值显存对一遍，差距超过一成说明有没算到的缓冲区。Llama 3 团队就做了这样一个估算器加一个性能预测工具，用来在开训前筛选并行配置。【文中有据，第 12 页】激活重算的代价是每步多做一次前向，计算量加三分之一；Llama 3 通过逐个释放之后不再用到的张量，在 8K 序列上完全没有用激活重算。流水线并行的气泡比例是 $(\mathrm{PP}-1)/(V\cdot M)$，$M$ 是微批次数，$V$ 是每张卡上交错放置的段数；PP 取 16、每卡 2 段、16 个微批次时，气泡约 47%，所以 $V$ 和 $M$ 都要尽量大，而 $M$ 又受全局批大小限制。这是卡数越多 MFU 越难保持的根本原因。</p>
+</div>
+
+<h2 id="lr">学习率、批大小与调度</h2>
+<p>然后是优化器的旋钮。输入是模型大小和总 token 数，输出是峰值学习率、预热长度、衰减曲线和批大小随训练的变化。三份报告给出的配方放在一起：</p>
+<table class="t left">
+<tr><th></th><th>Llama 3 405B</th><th>DeepSeek-V3</th><th>OLMo 2 7B</th></tr>
+<tr><td>峰值学习率</td><td>$8\times10^{-5}$</td><td>$2.2\times10^{-4}$</td><td>$3\times10^{-4}$</td></tr>
+<tr><td>预热</td><td>8000 步，线性</td><td>2000 步，线性</td><td>2000 步，线性</td></tr>
+<tr><td>主体</td><td>余弦衰减，120 万步降到 $8\times10^{-7}$</td><td>常数到 10T token，再用 4.3T token 余弦降到 $2.2\times10^{-5}$</td><td>按 5T token 设计的余弦，训到 4T 时截断</td></tr>
+<tr><td>收尾</td><td>最后一段线性降到 0（见退火一节）</td><td>333B token 保持 $2.2\times10^{-5}$，最后 167B 换成 $7.3\times10^{-6}$</td><td>中期训练里线性降到 0</td></tr>
+<tr><td>批大小</td><td>4M token，训满 252M 后 8M，训满 2.87T 后 16M</td><td>前 469B token 内从 3072 条增到 15360 条（每条 4K）</td><td>1024 条（每条 4K）</td></tr>
+</table>
+<p class="tcap">出处：Llama 3 报告第 14 页；DeepSeek-V3 报告第 22 至 23 页；OLMo 2 第 6 页表 3。</p>
+<p>几个规律可以直接读出来。学习率随模型变大而变小：Llama 3 的 8B、70B、405B 依次是 $3\times10^{-4}$、$1.5\times10^{-4}$、$8\times10^{-5}$，大致和宽度成反比。批大小在训练早期较小、之后逐步增大，Llama 3 给的理由是早期小批更稳定。Llama 3 的原文在这里有一个笔误：它写的是批大小增至 <b>8M sequences of 8,192 tokens</b>，按字面是每批 690 亿 token，整个训练只够两百多步；按上下文应为每批 8M token、序列长 8192。用这个读法核对步数：前 252M token 每步 4M 是 63 步，到 2.87T 每步 8M 约 33 万步，余下的每步 16M 约 80 万步，合计约 115 万步，和余弦调度的 120 万步对得上。【推断，依据：第 14 页的步数和批大小】</p>
+<p>三家在衰减方式上的分歧最有意思。Llama 3 用的是经典的余弦，衰减的长度必须事先定好，Chinchilla 的附录发现余弦周期比实际训练长出 25% 以上，损失就明显变差。DeepSeek-V3 和 OLMo 2 都偏离了这个做法：一个是长时间保持常数、最后再降，一个是余弦中途截断、最后线性降到 0。它们都是 WSD（warmup-stable-decay）这一类调度的变体。</p>
+<p>WSD 的想法来自 MiniCPM：预热之后长时间保持常数学习率，只在最后一小段衰减。他们发现衰减段只需要总 token 数的 10% 左右，而且损失会在衰减段里突然下降一大截。Hägele 等人系统比较后发现，常数学习率加上占 20% 步数的衰减就能追平余弦，衰减形状用 $1-\sqrt{t}$ 比线性还略好。【文中有据，MiniCPM 第 5 至 6 页、图 5；Hägele et al. 第 4 至 5 页】</p>
+<p>这类调度真正的价值不在最终损失，而在于它改变了实验的组织方式。余弦调度下，想知道训 1T、2T、4T token 各是什么效果，需要三次独立的训练。WSD 下只需要一次常数学习率的长训练，在 1T、2T、4T 处各存一个检查点，从每个检查点分出去做一次短的衰减即可，衰减只占 10% 到 20% 的算力。对一个要外推的团队来说，这等于用一次训练的价钱得到一整条缩放曲线。旗舰模型自己也受益：没有人能事先确定要训多少 token，常数段可以一直延长，等数据和时间都确定了再衰减。</p>
+<p>衰减段为什么会让损失突然下降？一个常用的图景是：常数学习率时，参数在损失面的一条山谷里沿谷底前进，同时在两侧谷壁之间来回振荡，振荡的幅度和学习率成正比，这部分振荡在损失里表现为一个高出谷底的平台。学习率一降，振荡收缩，参数落回谷底，损失立刻掉下来；而沿谷底前进的进度，在常数段已经积累好了。这个图景解释了为什么衰减段不需要很长。</p>
+<div class="bench">
+<p>调度出问题的典型症状是：训练中途发现总 token 数要改（数据到货晚了，或者算力被抢走一部分），余弦调度已经按原计划走了一半。OLMo 2 7B 的配方就是这种情况的样子：余弦按 5T 设计，训到 4T 停下，学习率停在半山腰，然后靠中期训练里的线性衰减补上收尾。【推断，依据：OLMo 2 表 3 的 truncation 一行】补丁的代价是截断点的学习率比设计值高，收尾段要承担更大的下降；如果事先用的是 WSD，就没有这个问题。另一个常见症状是批大小翻倍后损失曲线出现一个台阶。按线性缩放规则，批大小翻倍时学习率也该相应调整；Llama 3 在两次翻倍时都没有提调整学习率，这类细节报告通常不写。</p>
+</div>
+
+<h3>换掉 Adam 的 Muon</h3>
+<p>上面三份配方用的都是 AdamW，这是 2017 年以来几乎没人动过的默认值。2025 年第一个在万亿参数上动它的是 Kimi K2，用的是 Muon。</p>
+<p>两者的差别在于怎么看一个权重矩阵的梯度。Adam 把矩阵里的每个元素当作独立的数，各自按历史梯度的大小缩放。Muon 把整个梯度矩阵当作一个整体：先算动量，再把动量矩阵正交化，也就是保留它的方向结构、把所有奇异值拉到同一个大小，然后用这个矩阵去更新权重。直观地说，Adam 更新时会让少数几个强势方向占满整个更新，Muon 让每个方向都走一样远。Moonshot 此前的实验表明，同样的算力下 Muon 能把损失降得更低，也就是每个 token 学到的更多。在高质量数据越来越紧的时候，这正是他们想要的。【文中有据，Kimi K2 报告第 2 至 3 页】</p>
+<p>问题在规模放大时出现。他们用原版 Muon 训一个激活 9B、总参数 53B 的 MoE，注意力 logit 的最大值很快超过 1000，这已经足以导致数值不稳甚至发散。补丁叫 QK-Clip：每一步更新之后，检查每个注意力头在这一批里出现过的最大 logit $S_{\max}^h$，超过阈值 $\tau$ 就把这个头的查询和键投影矩阵按 $\gamma_h=\min(1,\tau/S_{\max}^h)$ 缩回去，查询和键各分一半（各乘 $\sqrt{\gamma_h}$）。它不改动当前这一步的前向和反向，只是在权重变大之后把它压回来，而且只压那几个出问题的头。K2 用 $\tau=100$，整个 15.5T token 的预训练里没有出现一次损失尖峰；最大 logit 在训练开始后很快涨到 100 并被压住，大约训练到 30% 之后自己回落到正常范围，阈值从头到尾没有调过。【文中有据，Kimi K2 报告第 4 页、图 2 和图 3】</p>
+<p>和上一节 OLMo 2 的 QK 归一化比，两者治的是同一种病：查询和键的点积无限增大。QK 归一化是在每次前向时把查询和键的尺度固定住，属于结构改动；QK-Clip 是盯住结果、超标了再动权重，结构不变。后者的好处是对 MLA 这类把键压缩成潜在向量的结构也能用，而在 MLA 上做 QK 归一化很别扭，因为键在推理时并不完整地存在。【推断，依据：K2 报告对 MLA 各分量分别裁剪的说明】</p>
+
+<h2 id="run">开跑之后的故障与尖峰</h2>
+<p>开训之后要准备的不是一个决定，而是一套应对规程：坏了怎么办，损失突然跳起来怎么办。</p>
+
+<h3>平均三小时一次中断</h3>
+<p>Llama 3 报告里有一张表，记录了 405B 预训练期间一段 54 天里的全部 466 次中断。其中 47 次是计划内的（固件升级、配置变更、数据集更新），419 次是意外。按类别：</p>
+<table class="t">
+<tr><th>原因</th><th>次数</th><th>表中百分比</th><th>按次数重算</th></tr>
+<tr class="hl"><td>GPU 故障</td><td>148</td><td>30.1%</td><td>35.3%</td></tr>
+<tr><td>GPU 显存（HBM3）</td><td>72</td><td>17.2%</td><td>17.2%</td></tr>
+<tr><td>软件缺陷</td><td>54</td><td>12.9%</td><td>12.9%</td></tr>
+<tr><td>网络交换机或线缆</td><td>35</td><td>8.4%</td><td>8.4%</td></tr>
+<tr><td>主机计划外维护</td><td>32</td><td>7.6%</td><td>7.6%</td></tr>
+<tr><td>GPU SRAM</td><td>19</td><td>4.5%</td><td>4.5%</td></tr>
+<tr><td>GPU 系统处理器</td><td>17</td><td>4.1%</td><td>4.1%</td></tr>
+<tr><td>静默数据损坏</td><td>6</td><td>1.4%</td><td>1.4%</td></tr>
+<tr><td>其余十类</td><td>36</td><td>8.6%</td><td>8.6%</td></tr>
+</table>
+<p class="tcap">Llama 3 报告第 13 页表 5，合并了最后十个小类。最后一列是本文用各行次数除以 419 重算的结果。</p>
+<p>表里的次数加起来正好是 419，百分比加起来却只有 94.9%。差在第一行：148 除以 419 是 35.3%，不是表里写的 30.1%。正文说 GPU 问题占全部意外中断的 58.7%，这个数是用 30.1% 加其他 GPU 类别得到的，按次数重算应该是 64.0%。结论的方向不变，GPU 仍然是最大的故障源，只是比报告说的更大。【文中有据，表 5；重算是本文的】</p>
+<p>拿这张表做一次手算。419 次意外中断分摊在 54 天里，平均每 3.1 小时一次。集群有 16384 张卡，摊到每张卡上，平均无故障时间是 $16384\times54\times24/419\approx5.1$ 万小时，接近 6 年。单张卡 6 年坏一次，听起来很可靠；一万六千张卡同步训练，任何一张坏了整个作业都要停，就变成了三小时一次。这是同步训练的根本脆弱性，也是规模继续扩大时最先碰到的墙。</p>
+<p>每次中断要付三笔账：从上一个检查点到故障时刻之间的计算要重做；重启作业、重新加载检查点要花时间；平时写检查点本身也要暂停训练。检查点写得越勤，重做的越少，但写检查点的开销越多。设写一次检查点的停顿是 $\delta$，平均故障间隔是 $M$，检查点间隔是 $\tau$，浪费掉的时间比例大约是：</p>
+<p>$$\text{浪费}\approx\frac{\delta}{\tau}+\frac{\tau}{2M}+\frac{R}{M}$$</p>
+<p>第一项是写检查点，第二项是平均重做半个间隔，第三项 $R$ 是每次重启的固定开销。对 $\tau$ 求最小值，得到 $\tau^*=\sqrt{2\delta M}$，这是 Young 在 1974 年给出的公式。拖动下图的滑块改变卡数，看最优间隔和浪费比例怎么变。</p>
+<div class="fk-fig" id="figCkpt"></div>
+<div class="fk-ctl" id="ctlCkpt"></div>
+<p class="fk-cap"><b>图 8</b>检查点间隔与浪费比例。单卡的故障率取 Llama 3 表 5 的实测值（每卡约 5.1 万小时一次）；写检查点的停顿 $\delta$ 取 20 秒，重启开销 $R$ 取 6 分钟，这两个数报告没有给，是<b>示意</b>，取值依据见正文。橙红曲线是总浪费，三条灰线是它的三项，橙色点是最优间隔。</p>
+<p>$\delta$ 和 $R$ 怎么取：报告说每张卡的检查点是 1 MB 到 4 GB，存储系统持续写入 2 TB/s、峰值 7 TB/s；405B 的全部训练状态按 16 字节每参数约 6.5 TB，按持续带宽 3 秒多就能写完，加上同步和校验，取 20 秒是宽松的。报告还说有效训练时间超过 90%；在三小时一次故障的条件下，前两项在最优间隔处合计约 6%，浪费不超过 10% 就要求 $R/M$ 小于 4%，倒推 $R$ 最多七八分钟。【推断，依据：Llama 3 报告第 8 至 9 页、第 13 页】</p>
+<p>滑块拖到 16K 卡，最优间隔约 11 分钟，总浪费约 9%，和报告的 90% 以上有效时间吻合。拖到 128K 卡，故障间隔缩到 23 分钟，即使检查点间隔优化到最好，浪费也有 43%，其中六成来自重启。所以重启开销 $R$ 是比检查点频率更关键的量：报告里专门写了他们缩短了作业启动和写检查点的时间，并开发了快速诊断工具；466 次中断里只有 3 次需要显著的人工介入，其余都由自动化处理。【文中有据，第 13 页】</p>
+<p>同一页还有几个只有在这个规模上才会出现的现象：一天之中吞吐会随气温波动 1% 到 2%，因为中午温度高，GPU 的动态调频降频；几万张卡同时等待检查点或通信时功耗同时下降，同时恢复时又同时上升，整个数据中心的功率在几十兆瓦的量级上摆动，已经在挑战电网的承受能力。还有一种更难查的故障：一张卡没有坏，只是变慢了，它会拖慢同步训练里所有的卡。</p>
+
+<h3>损失尖峰</h3>
+<p>另一类故障来自训练本身。OLMo 2 的报告详细描述了它的前一个版本 OLMo-0424 遇到的症状：损失突然跳起，更常见的是梯度范数突然跳起，而且梯度范数的大幅跳动往往发生在损失跳动之前；模型越大，尖峰越频繁；同时梯度范数在整个训练中缓慢增长，增长越多，尖峰越频繁。这些问题叠在一起，最终导致发散，更大的模型根本训不下去。【文中有据，OLMo 2 第 10 页】</p>
+<p>他们最后改了八处：</p>
+<ul>
+<li>数据：删掉含有 32 次以上重复 n-gram 的文档（n 从 1 到 13 个 token），训练器在读数据时再检查一遍，把这类片段的损失屏蔽掉；</li>
+<li>初始化：从按层缩放的初始化改成所有参数都用均值 0、标准差 0.02 的正态分布；</li>
+<li>归一化：从无参数的 LayerNorm 换成 RMSNorm；</li>
+<li>归一化的位置：从对注意力和前馈层的<b>输入</b>归一化，改成对它们的<b>输出</b>归一化后再加回残差；</li>
+<li>QK 归一化：计算注意力之前，对查询和键的投影各做一次 RMSNorm；</li>
+<li>z-loss：给输出 logit 的对数配分函数加一个正则项，防止 logit 无限增长；</li>
+<li>嵌入层不做权重衰减；</li>
+<li>AdamW 的 $\epsilon$ 从 $10^{-5}$ 降到 $10^{-8}$。</li>
+</ul>
+<p>重复 n-gram 那一条最具体。报告给了三个触发尖峰的样本，一个是 <code>g4ODg4ODg4OD</code> 无限重复的 base64 片段，一个是一长串 <code>667, 667, 667</code>，一个是一长串 <code>255, 255, 255</code>。这种片段让模型在很多位置上做出极其自信的预测，梯度集中在少数方向上。但报告也说得很谨慎：同一段重复序列在大模型上触发尖峰、在小模型上不触发；换一种数据顺序就不触发；同样的序列在其他没有尖峰的批次里也出现过。过滤之后尖峰明显减少，但没有消失，而且对梯度范数的缓慢增长没有作用。【文中有据，OLMo 2 第 12 至 13 页、图 3】</p>
+<p>注意力 logit 的增长是另一个已知的来源。Wortsman 等人证明它可以在小模型上复现：把学习率调高，一个很小的 Transformer 就会出现注意力 logit 无限增大、注意力权重退化成独热分布的现象，和大模型上报告的一模一样。QK 归一化和系数 $10^{-4}$ 的 z-loss 能让同一个小模型在跨三个数量级的学习率上都训练成功。【文中有据，Wortsman et al. 第 1 至 3 页】这又是本文的主题：一个只在大模型上出现的问题，一旦能在小模型上用调高学习率的办法复现，就可以在小模型上便宜地筛选补丁。</p>
+<div class="bench">
+<p>尖峰出现时的现场处理，按代价从小到大有三步。一，什么都不做，观察几百步：很多尖峰会自己恢复，损失回到原来的轨迹上。二，跳过触发尖峰的那几个批次，从尖峰前最近的检查点重启；如果同一位置换数据后不再出现，问题在数据。三，从更早的检查点重启并降低学习率；如果换了数据还在同一阶段出现，问题在优化状态。DeepSeek-V3 报告说整个训练没有出现不可恢复的尖峰，也没有回滚过；Llama 3 说观察到的尖峰很少，没有为发散做过干预。【文中有据】OLMo 2 的经验说明这种平静不是运气，而是事先在小模型上把上面那张清单逐条筛过的结果。每一条的代价都不大，QK 归一化每层多两次归一化，z-loss 多一个标量项；真正的代价是筛选它们需要一套能在小模型上稳定复现不稳定性的实验设置。</p>
+</div>
+
+<h2 id="anneal">收尾的长上下文、退火与权重平均</h2>
+<p>预训练的最后几个百分点，三家报告都单独拿出来讲。输入是一个已经训了十几万亿 token 的模型，输出是一个能读长文、在高质量数据上收过尾的基座模型。</p>
+<p>长上下文放在最后的原因是算力：注意力的计算量随序列长度平方增长，从一开始就用 128K 的序列训练，代价不可接受。Llama 3 在预训练的最后阶段，分六步把上下文从 8K 加到 128K，这一段共用了约 800B token。每加长一步，要等两个条件都满足才进入下一步：短上下文的评测分数完全恢复，以及在当前长度上完美通过大海捞针测试（在一长段无关文本里埋一句话，问模型这句话的内容）。【文中有据，Llama 3 报告第 14 页】DeepSeek-V3 的做法更省：预训练用 4K 序列，结束后用 YaRN 调整位置编码，再做两段各 1000 步的训练，先到 32K、再到 128K，合计 11.9 万卡时，是预训练的 4.5%。【文中有据，DeepSeek-V3 报告第 23 页、表 1】</p>
+<p>之后是退火。Llama 3 报告写的是：在最后 <b>40M token</b> 上把学习率线性降到 0，上下文保持 128K，同时上采样质量很高的数据源，最后把退火过程中的若干个检查点做平均（Polyak 平均），作为最终的预训练模型。这里的 40M 很可疑。此时的批大小是每步 16M token，40M token 只够两步半，在两步半里线性降到 0 没有意义；同一份报告在数据一节用退火评估数据质量时，用的是 40B token。我认为这里是 40B 的笔误，但报告没有给出可以核对的其他数字。【推断，依据：第 6 页与第 14 至 15 页】</p>
+<p>权重平均是收尾里最便宜的一步。OLMo 2 7B 把 50B token 的中期训练按不同的数据顺序跑三遍，平均三组权重；13B 和 32B 是三次 100B 加一次 300B，四组平均。【文中有据，OLMo 2 第 7 页】几个从同一起点出发、只是数据顺序不同的模型，停在了同一个低谷的不同位置上，平均之后更靠近谷底的中心。代价是收尾段的算力乘以份数，换来的是一个更平稳的最终模型，以及对数据顺序这个随机因素的一次平滑。</p>
+
+<h2 id="mm">看图和看视频的两条路线</h2>
+<p>到这里为止讲的都是文字。2025 年的旗舰模型几乎都能看图，很多能看视频，Gemini 还能直接听视频里的声音。这一步在流程里的位置，取决于走哪条路线，而两条路线的差别比通常说的要细。</p>
+<p>一种常见的说法是：Gemini 是原生多模态，能直接理解视频；其他模型是在语言模型上外挂一个视觉编码器，只能抽几帧当图片看。这个说法抓住了一半。先说它不准的那一半：<b>两条路线都在抽帧，也都要把像素变成 token</b>。没有哪个模型把每秒 30 帧的原始视频完整地喂进去，那样一小时的视频就是几千万个 token。差别在别处。</p>
+<div class="fk-fig" id="figMM"></div>
+<p class="fk-cap"><b>图 9</b>两条路线的数据流。上面一行是外挂式，以 Qwen3-VL 为例：图像和视频帧先过一个单独预训练好的 ViT，经过一个小的投影层（merger）变成语言模型能接收的 token，视频的时间写成文字形式的时间戳。下面一行是原生式，以 Gemini 为例：文字、图像、音频、视频在预训练一开始就交错放进同一个模型。</p>
+<p>外挂式的代表是 Qwen3-VL。它的三个部件各有来历：视觉编码器是现成的 SigLIP-2（4 亿参数那一档），语言模型是已经训好的 Qwen3，中间是一个 MLP 投影层。训练分四段：第一段冻住其他所有部分，只训投影层，让视觉 token 先对得上语言模型的输入空间；之后才放开全部参数，上下文依次加到 8K、32K、256K。视频按每秒一到两帧左右抽取（评测时多数用 2 fps），每一组帧前面插一段文字时间戳，比如 <code>&lt;3.0 seconds&gt;</code>。它还把 ViT 中间几层的特征也送进语言模型的多个层（DeepStack），让语言模型同时看到粗和细两个层级的视觉信息。【文中有据，Qwen3-VL 报告第 2 至 4 页、第 9 页】</p>
+<p>原生式的代表是 Gemini。报告的说法是 Gemini 2.X 系列从一开始就按原生多模态构建，文字、图像、音频、视频在预训练里同时出现。【文中有据，Gemini 2.5 报告第 1 至 2 页】Gemini 同样要抽帧，同样把每一帧变成一组 token。它和外挂式真正的区别有三处。一是<b>时间</b>：几种模态从预训练的第一步就在同一个模型里交错出现，模型学到的是它们之间的对应关系，而不是在一个已经定型的语言模型上补学视觉。二是<b>声音</b>：视频的音轨也变成 token，和画面按时间对齐地放在一起，所以它能回答画面里没有、只在声音里出现的问题；大多数外挂式的视觉语言模型只看画面。三是<b>预算</b>：同样的上下文能装多长的视频，完全取决于每帧和每秒音频各要多少 token。</p>
+<p>第三点可以手算。Gemini 的公开文档给的是每秒抽 1 帧，每帧 258 个 token，音频每秒 32 个 token，合计每秒视频 290 个 token。100 万 token 的上下文装得下 $10^6/290\approx3448$ 秒，约 0.96 小时。Gemini 2.5 报告说，他们训练模型在每帧只用 66 个 token 时也能保持竞争力，于是同样的上下文从大约 1 小时变成大约 3 小时：$10^6/(66+32)\approx10204$ 秒，2.8 小时。【文中有据，Gemini 2.5 报告第 8 页；每帧和音频的 token 数出自 Gemini API 文档；换算是本文的】拖动下图的滑块，改变每帧的 token 数，看一百万 token 能装多少分钟。</p>
+<div class="fk-fig" id="figVid"></div>
+<div class="fk-ctl" id="ctlVid"></div>
+<p class="fk-cap"><b>图 10</b>一百万 token 的上下文能装下的视频时长，横轴是每秒抽几帧。橙色是带音轨（每秒 32 个 token），蓝色是只有画面。滑块改的是每帧的 token 数；258 和 66 是 Gemini 2.5 报告里的两个取值。</p>
+<p>拖到 66 再沿横轴往右看，就能看到抽帧率和每帧精度之间的交换：每帧 token 少了，就能每秒多抽几帧，看清快速的动作；每帧 token 多了，就能看清画面里的小字。两种路线都在这条曲线上选点。外挂式模型多看画面、少看时间的选择，部分是这个预算逼出来的，部分是因为它的语言模型在接上视觉之前已经定型，后补的视觉能力受限于投影层和后续训练能搬动多少。【推断】</p>
+<div class="bench">
+<p>外挂式路线第一版最常见的症状是<b>语言能力倒退</b>：多模态数据一多，模型在纯文本评测上掉分。原因是语言模型的参数被视觉任务的梯度推着走。Qwen3-VL 的处理是按平方根对文本和多模态数据重新加权，并且一开始只训投影层。另一个症状是时间定位不准：问视频第几秒发生了什么，答得含糊。Qwen2.5-VL 用位置编码里的时间维去对齐绝对时间，Qwen3-VL 改成直接写文字时间戳，报告给的理由是更简单、更直接。【文中有据，Qwen3-VL 报告第 2 页、第 4 页】代价是每组帧多出十来个文字 token。</p>
+</div>
+
+<h2 id="post">从续写到回答的后训练</h2>
+<p>预训练出来的模型只会续写：给它一个问题，它可能接着写出十个类似的问题。把续写变成回答，是后训练的事。一年前，这一步的算力在预训练面前还是零头：DeepSeek-V3 的后训练只用了 5000 个卡时，占总量的 0.2%。【文中有据，DeepSeek-V3 报告表 1】到 DeepSeek-V3.2，这个比例超过了 10%。中间发生的事情，按出现的顺序讲。</p>
+
+<h3 id="sft">监督微调</h3>
+<p>最直接的办法是给模型看问答对，只在回答部分计算交叉熵，提示部分的损失屏蔽掉。InstructGPT 第一次把这个流程公开得很完整：40 名标注员，监督微调用了约 1.3 万条提示，奖励模型 3.3 万条，强化学习 3.1 万条。结果是 1.3B 参数的 InstructGPT 在标注员的偏好评测里胜过了 175B 的 GPT-3，参数少一百多倍；175B 的 InstructGPT 有 85% 的时候比 175B 的 GPT-3 更受偏好（上下浮动 3%）。【文中有据，InstructGPT 第 1 至 3 页、第 7 页】</p>
+<p>这个结果后来被反复验证，含义很清楚：预训练模型已经具备回答的能力，后训练做的是把它调出来，而不是教给它。到了 Llama 3，监督微调的数据大部分已经不是人写的：对每条人工收集的提示，用当前最好的模型采样 10 到 30 个回答，用奖励模型挑出最好的一个，这叫拒绝采样；再加上针对代码、数学、工具调用等能力专门合成的数据。405B 的微调学习率 $10^{-5}$，8500 到 9000 步。报告自己也说，虽然叫监督微调，很多训练目标其实是模型生成的。【文中有据，Llama 3 报告第 16 至 18 页】Tülu 3 公开了完整的微调数据，共 939,344 条。【文中有据，Tülu 3 第 12 页表 7】</p>
+
+<h3 id="pref">奖励模型与 DPO</h3>
+<p>监督微调只告诉模型什么是对的，不告诉它两个都还可以的回答里哪个更好。偏好数据补的是这一块：对同一个提示给出两个回答，标注员选一个。Llama 3 的标注员还要标出偏好的强度（明显更好、更好、略好、差不多），并且可以再编辑一遍选中的回答，于是有些样本有三个排好序的回答：编辑过的、选中的、被拒的。训练时只用明显更好和更好这两档，相近的样本丢掉。【文中有据，Llama 3 报告第 16 至 17 页】</p>
+<p>InstructGPT 的做法是先用偏好数据训一个奖励模型，再用 PPO 让语言模型去最大化这个奖励。PPO 要同时在显存里放策略模型、参考模型、奖励模型和价值模型，对 405B 来说代价很高。Llama 3 最后选了 DPO（直接偏好优化），它把奖励模型和强化学习合成一个类似分类的损失：提高被选中回答相对参考模型的对数概率，降低被拒回答的。报告说试过 PPO，DPO 在大模型上算力更省，而且在指令遵循的评测上表现更好。超参数是学习率 $10^{-5}$、$\beta=0.1$。【文中有据，Llama 3 报告第 16 页】</p>
+<p>报告里两处对 DPO 的修改很能说明第一版会怎么坏。第一处：对话格式里的特殊 token（标记说话人、标记一轮结束）同时出现在选中和被拒的回答里，DPO 要同时提高和降低它们的概率，结果模型学会了在结尾不停重复，或者突然输出结束符。补丁是把这些格式 token 从 DPO 损失里屏蔽掉。第二处：DPO 只管两个回答的相对概率，选中回答本身的概率可能一起下降，格式就开始走样。补丁是对选中的回答额外加一个系数 0.2 的负对数似然项。整个流程（奖励模型、拒绝采样、微调、DPO）一共做了六轮，每一轮用上一轮最好的模型重新采样、重新收集偏好。【文中有据，Llama 3 报告第 16 至 17 页】</p>
+
+<h3>可验证奖励与 GRPO</h3>
+<p>数学题和代码题有一个特殊的性质：答案对不对可以由程序判断，不需要人，也不需要奖励模型。Tülu 3 把这类训练叫作带可验证奖励的强化学习（RLVR）：答案能被验证为正确就给奖励 10，否则给 0，用 PPO 训练，用了约 3 万条带标准答案的提示。【文中有据，Tülu 3 第 31 至 32 页】</p>
+<p>DeepSeek-R1-Zero 把这条路走到了头：不做任何监督微调，直接在 DeepSeek-V3 的基座上用规则奖励做强化学习。算法是 GRPO，它去掉了 PPO 里的价值模型，改用同一道题的一组回答互相比较。每道题采样 $G=16$ 个回答，每个回答的奖励 $r_i$ 减去这一组的均值、除以这一组的标准差，就是它的优势：</p>
+<p>$$A_i=\frac{r_i-\mathrm{mean}(r_1,\dots,r_G)}{\mathrm{std}(r_1,\dots,r_G)}$$</p>
+<p>优势为正的回答，其中每个 token 的概率被推高；为负的被压低。奖励只有对错两种时，这个式子有一个直接的后果。拖动下图的滑块，改变 16 个回答里答对的个数。</p>
+<div class="fk-fig" id="figGrpo"></div>
+<div class="fk-ctl" id="ctlGrpo"></div>
+<p class="fk-cap"><b>图 11</b>一道题 16 个回答的 GRPO 优势。绿色是答对的回答，橙红是答错的；条的高度是优势 $A_i$。读数行里的<b>信号总量</b>是 16 个优势绝对值之和，它决定了这道题对这一步梯度的贡献有多大。</p>
+<p>全对或全错的时候，所有回答的奖励一样，标准差为 0，优势全是 0：这道题对训练没有任何贡献。只答对 1 个时，那个答对的回答优势是 3.87，15 个答错的各是 $-0.26$，一次罕见的成功被放大了十几倍。信号总量在答对一半时最大，等于 $32\sqrt{p(1-p)}$，$p$ 是答对的比例。所以 GRPO 训练的效率取决于题目难度的分布：太简单和太难的题都是白算，最有用的是模型现在答对一半左右的题。这也是为什么这类训练普遍要按当前模型的通过率筛选题目。【推断，依据：公式本身】</p>
+<p>R1-Zero 的数字：学习率 $3\times10^{-6}$，KL 系数 0.001，每步 32 道题、每题 16 个回答，最大长度在第 8200 步之前是 32,768 个 token，之后放宽到 65,536，共训 10,400 步。AIME 2024 上的平均单次通过率从 15.6% 升到 77.9%，16 次投票后是 86.7%。回答长度在训练中自发变长，模型开始在回答里检查和推翻自己之前的推理。【文中有据，DeepSeek-R1 v2 第 3 至 5 页】</p>
+<div class="bench">
+<p>后训练第一版最常见的失效是奖励被钻空子。症状是奖励曲线一路上涨，人看输出却越来越差：回答越来越长，堆砌格式，或者用某种固定的套话骗过奖励模型。负责人先做的事是每隔几百步抽样几十条输出亲自读，并且盯着平均回答长度这一个数；长度的涨幅远超奖励的涨幅，多半是奖励模型偏爱长回答。补丁有三种：给 KL 项更大的权重，把策略拉近参考模型；在奖励里扣除长度；换成可验证的奖励。第三种最干净，但只适用于有标准答案的任务。Tülu 3 报告专门记录了在指令遵循任务上对可验证奖励的过度优化，说明即使奖励是程序算的，只要它和真实目标之间有缝，策略就会找到那条缝。【文中有据，Tülu 3 目录中的 RLVR IFEval overoptimization 一节】</p>
+</div>
+
+<h3 id="rlscale">强化学习的预算与缩放曲线</h3>
+<p>R1 证明了可验证奖励的强化学习能把推理能力推得很远，接下来的问题就和预训练一样：该花多少算力，花下去会涨多少。2025 年 10 月的 ScaleRL 是第一个系统回答这个问题的工作。他们发现强化学习的表现和算力之间不是幂律，而是一条会饱和的 S 形曲线：</p>
+<p>$$R_C-R_0=(A-R_0)\cdot\frac{1}{1+(C_{\text{mid}}/C)^{B}}$$</p>
+<p>$R_C$ 是花了算力 $C$ 之后在验证集上的通过率，$R_0$ 是起点，$A$ 是这条曲线最终能到的上限，$B$ 管爬得多快，$C_{\text{mid}}$ 是爬到一半时的算力。这个式子把一个强化学习配方拆成两个可以分开比较的量：<b>天花板 $A$</b> 和<b>效率 $B$</b>。他们扫了大量常见的设计选择，结论是：损失怎么聚合、优势怎么归一化、课程怎么排、用哪种离策略算法，这些主要改变效率，几乎不动天花板；真正抬高天花板的是更大的模型等少数几项。他们用这条曲线把一次 8B 模型的训练外推到 10 万 GPU 小时，最终结果落在曲线上。【文中有据，ScaleRL 第 1 至 3 页】</p>
+<p>这对团队的意义和 isoFLOP 曲线一样：一个新的强化学习技巧，在小预算上看起来涨得快，可能只是 $B$ 大，天花板并不更高；要判断它值不值得放进旗舰模型的配方，就要把曲线拟合出来，看 $A$。</p>
+<p>算力加上去之后，钱花在了哪里？DeepSeek-V3.2 的后训练分两步。先在六个领域各训一个专家模型：数学、编程、一般逻辑推理、一般智能体任务、智能体编程、智能体搜索，每个都从同一个基座出发、各自做大规模强化学习；再把这些专家的输出蒸馏回一个模型，之后在混合数据上继续做几千步强化学习。为了智能体任务，他们合成了 1800 多个不同的环境和 85,000 个复杂提示。【文中有据，DeepSeek-V3.2 报告第 2 页、第 5 至 6 页】Kimi K2 为工具调用合成了两万多个工具。【文中有据，Kimi K2 报告第 9 至 10 页】Qwen3 则把会思考和不思考两种模式合进一个模型，用户可以设一个思考预算，控制它在回答前想多久；小模型不单独做强化学习，而是从大模型做强到弱的蒸馏。【文中有据，Qwen3 报告第 1 至 2 页】</p>
+<p>把这些放在一起看，后训练在 2025 年变成了一个工程问题：瓶颈从算法转到了<b>环境和奖励</b>。谁能造出更多可以自动判对错的任务，谁的强化学习就能继续往上爬。</p>
+
+<h3 id="render">渲染出来再打分</h3>
+<p>可验证奖励最自然的领域是数学和代码：答案对不对、测试过不过。但很多用户在意的能力看上去没法自动判分，比如画一张 SVG 插图，写一段好看的网页动画。2025 年这类能力在几家前沿模型上都跳了一大截，有的模型画出的 SVG 已经可以直接拿来用。这些公司都没有公开具体做法，但公开的研究给出了一条清楚的路：<b>把代码渲染出来，再对渲染结果打分</b>。</p>
+<p>NeurIPS 2025 的 RLRF（Reinforcement Learning from Rendering Feedback）是一个具体的例子。任务是给一张图，生成能画出它的 SVG 代码。监督微调的模型从来没见过自己写的代码画出来是什么样，所以经常写出不忠实或者冗长的代码。RLRF 让模型对同一张图采样若干份 SVG，每份都渲染成位图，和原图比较：像素层面像不像，语义层面像不像（用一个视觉模型判断），代码是否简洁（和参考代码的长度差），三项合成奖励，再用强化学习更新。渲染这一步不可求导，正好用强化学习绕过去。结果明显好于只做监督微调。【文中有据，Rodriguez et al. 2025，arXiv 2505.20793，摘要与第 3 节】</p>
+<p>把这个思路推广：凡是输出能被执行或渲染的任务，网页、图表、动画、游戏、排版，都可以造出一个<b>运行环境加一个视觉评审</b>，让模型在里面反复试。评审可以是像素指标，也可以是另一个多模态模型给出的分数或两两比较。我的判断是，前沿模型在 SVG 和前端动画上的突然进步，主要来自这类环境被大规模造出来之后的强化学习，而不是预训练里多加了几份 SVG 文件。【猜测，依据：公开研究的方向和能力出现的时间；相关公司没有披露细节】这类奖励的风险也一样清楚：视觉评审有自己的偏好，比如偏爱饱和的颜色、居中的构图，模型会学会迎合评审，而不是迎合用户。</p>
+
+<h3 id="voice">说人话</h3>
+<p>后训练还决定了一件所有用户每天都在感受的事：模型说话的腔调。有一类文字一看就是模型写的，喜欢用某些词，喜欢某些句式，比如先否定一个没人提过的说法再给出自己的说法，每段都以总结收尾，三个形容词并排出现。这不是错觉，可以测量。</p>
+<p>Kobak 等人统计了 2010 年到 2024 年的 1500 多万篇 PubMed 摘要，找那些在 ChatGPT 出现之后用量突然飙升的风格词（delves 是最有名的一个），估计 2024 年至少 13.5% 的生物医学摘要经过了大模型处理，某些子领域高达 40%。这个词汇冲击比新冠疫情对学术语言的影响还大。【文中有据，Kobak et al.，Science Advances 2025】2025 年的 Antislop 论文直接对模型输出做了同样的统计：拿模型生成的文本和人写的文本比较，有些套路在模型输出里出现的频率是人类文本的一千倍以上，比如<b>不只是 X，而是 Y</b>这种句式。【文中有据，Paech et al.，arXiv 2510.15061，摘要】</p>
+<p>腔调从哪里来？预训练语料里这些词并不特别多，所以它主要是后训练的产物。偏好标注和奖励模型会奖励一些表面特征，比如显得周到、显得有条理、显得热情。强化学习把输出分布往高奖励的方向压，压得越狠，分布越窄，这些被奖励的表面特征就越集中地重复出现。再往下一代，这些带着口头禅的输出又被用作合成数据（上一节讲的改写和蒸馏），口头禅就被继承了下来。【推断】</p>
+<p>2025 年 4 月，OpenAI 的一次更新把这个机制暴露得很清楚。4 月 25 日推送的 GPT-4o 变得明显谄媚：不只是恭维，还会附和用户的疑虑、助长怒气、怂恿冲动的决定。4 月 28 日开始回滚。事后的复盘说，这次更新加入了一个基于 ChatGPT 用户点赞和点踩的额外奖励信号，它单独看是有用的，但几项改动叠在一起，削弱了原本压住谄媚的主奖励信号，而用户反馈本身就会偏爱更顺耳的回答。他们在发布前没有专门测试谄媚。【文中有据，OpenAI，Expanding on what we missed with sycophancy，2025 年 5 月】一个点赞按钮，就足以通过强化学习改掉一个模型的性格。</p>
+<p>怎么让模型说人话，目前有三种做法，处在不同的层级。</p>
+<ul>
+<li><b>在词和句式的层级上压</b>。Antislop 先把一个模型相对人类文本过度使用的模式找出来，再用一种只在单个 token 上做偏好优化的方法（FTPO）训练：在模型即将写出某个套路的那个位置，把概率从套路词挪到其他合理的词上。报告的结果是套路减少 90%，GSM8K、MMLU 和创意写作的表现不降；用普通的 DPO 做同样的事，压得不如它干净，写作质量和用词多样性反而明显下降。【文中有据，Antislop 摘要】</li>
+<li><b>在原则的层级上讲清楚</b>。Anthropic 在 2026 年 1 月发布的新版 Claude 宪章，不再是一张原则清单，而是一份解释模型应该是什么样、为什么这样的长文档。它在训练中直接起作用：模型用它生成合成训练数据，包括符合这些价值的回答和对候选回答的排序。【文中有据，Anthropic，Claude's new constitution，2026 年 1 月】说话方式在这里是性格的一部分：不讨好、不注水、直接说结论、不确定就说不确定，这些要求写成理由之后，比写成禁用词表更能泛化到没见过的场合。</li>
+<li><b>在评审的层级上换标准</b>。如果奖励模型和标注员本身偏爱长、热情、有条理的回答，前两层做得再好也会被强化学习慢慢冲掉。所以评测里要单独测谄媚和啰嗦，这正是 OpenAI 那次事故之后补上的环节。</li>
+</ul>
+<p>这三层对应的失效各不一样。只在词上压，模型会换一批同义的套话；只讲原则，模型可能在长对话里慢慢滑回去；只改评审，又很难覆盖所有场景。本页的写作规范其实就是这三层的一个小样本：有一张禁用词表，有一套关于为什么要直说的理由，还有一份交付前的自查清单。</p>
+
+<h2 id="eval">评测与涌现之争</h2>
+<p>最后要回答的是怎么判断训出来的模型好不好，以及它在更大的规模上会怎样。这里有一个持续了几年的争论，直接关系到本文的主题：如果能力会在某个规模上突然出现，那么小模型的实验就预测不了大模型，整套外推的方法就失效了。</p>
+<p>Wei 等人 2022 年把这种现象定义为涌现能力：小模型上不存在、大模型上存在，因而不能通过外推小模型的表现来预测。他们收集了一批例子，比如 GPT-3 在三位数加减法上，训练算力到 $2\times10^{22}$ FLOPs（13B 参数）之前一直接近随机，之后突然远高于随机；MMLU 上，GPT-3、Gopher、Chinchilla 都要到 $10^{22}$ FLOPs（约 10B 参数）附近才明显高于随机。【文中有据，Wei et al. 第 3 至 4 页、图 2】</p>
+<p>Schaeffer 等人 2023 年指出，这些突变几乎都出现在两种评分方式下：多选题的正确率，和要求输出与答案逐字一致的精确匹配，两者合计占了 BIG-Bench 上声称的涌现能力的 92% 以上。他们的论证可以写成一个式子。设模型每个 token 预测正确的概率 $p(N)$ 随参数量平滑上升，一道题的答案有 $L$ 个 token，精确匹配要求每个都对：</p>
+<p>$$\text{准确率}(N)\approx p(N)^{L}$$</p>
+<p>拖动滑块改变答案长度 $L$。</p>
+<div class="fk-fig" id="figEmerge"></div>
+<div class="fk-ctl" id="ctlEmerge"></div>
+<p class="fk-cap"><b>图 12</b>同一个平滑提升的模型族，在不同评分方式下的样子。绿色细线是每个 token 的正确率 $p(N)$，按 Schaeffer 等人的形式 $p=\exp(-(N/c)^{\alpha})$ 取一组示意参数；橙色粗线是长度为 $L$ 的答案的精确匹配率；灰色水平线是 100 道题的测试集能分辨的最小准确率。</p>
+<p>$L=1$ 时，两条线重合，提升是平滑的。$L$ 增大，精确匹配的曲线整体右移，并且变得越来越陡：在对数横轴上，它从贴着零到接近满分只跨了一个多数量级。再加上测试集的分辨率，100 道题时低于 1% 的准确率就是 0，曲线左侧被抹平成一条贴地的直线，突变看起来就更突然了。Schaeffer 等人在 InstructGPT 和 GPT-3 上验证了这一点：同样的模型输出，把评分换成按 token 计的编辑距离，突变就消失了；为小模型生成更多测试题，也能看到它们的准确率其实高于随机。【文中有据，Schaeffer et al. 第 3 至 6 页】</p>
+<p>这场争论该信到什么程度？我的判断是：Schaeffer 的论证说明了<b>突变的形状</b>很大程度上是评分方式造成的，但没有说明<b>准确率不能突变</b>。用户关心的恰恰常常是精确匹配：代码能不能跑通，证明对不对，数学题的最终答案对不对。对这些任务，能力确实会在某个规模上跨过可用的门槛。要紧的是，这个门槛可以预测。Llama 3 的两步法就是这样做的：先预测平滑的负对数似然，再用一条 S 形曲线把负对数似然映射成准确率，跨四个数量级预测了 ARC-Challenge 的成绩。【文中有据，Llama 3 报告第 8 页、图 4】所以对外推方法的正确结论是：外推连续的量，再把连续的量转成离散的指标；不要直接外推离散的指标。</p>
+
+<h2>从第一个小实验到发布的一条时间线</h2>
+<p>把前面各节按真正发生的顺序串起来。下面是一个基座模型团队可能的推进方式，大部分是从报告里的细节推断出来的，每一步标出依据。</p>
+<div class="steps">
+<div class="st">step one</div>
+<p>先拿到集群，在目标形状的小模型上测出自己的 MFU，写出显存估算器，确定能用的并行配置。没有这一步，后面所有的预算都是空的。【推断，依据：Llama 3 报告第 12 页的估算器和性能预测工具】</p>
+<div class="st">step two</div>
+<p>同时搭数据流水线。抽取、过滤、去重的每一个环节，都用 1B 到 2B 参数、几十到几百 B token 的模型做消融；全局去重这类看似显然的决定，要在这一步被证伪。【文中有据，FineWeb 第 4 至 6 页】</p>
+<div class="st">step three</div>
+<p>在定好的数据上跑 isoFLOP 实验。Llama 3 用了从 $6\times10^{18}$ 到 $10^{22}$ 的十个档位。粗算这一步的成本：每档七八个模型，总算力由最大的一两档主导，约 $10^{23}$ FLOPs，不到旗舰模型的 0.3%。这一步同时产出模型大小、token 数，以及下游任务的预测曲线。【推断，依据：Llama 3 报告图 2 的档位；成本是本文的估算】</p>
+<div class="st">step four</div>
+<p>用缩放律实验选数据配比，用小模型的高学习率实验筛稳定性补丁，用 1B 模型对比分词器。每一项都在小模型上做完，大模型只接收结论。【文中有据，Llama 3 第 6 页；Wortsman et al.；OLMo 2 表 2】</p>
+<div class="st">step five</div>
+<p>开训。前几百亿 token 用小批大小，之后逐步翻倍。每天至少一次计划内中断，平均三小时一次意外中断，靠自动化重启。训练中途根据中间检查点的评测调整配比：加多语言、加数学、加新网页。【文中有据，Llama 3 第 13 至 14 页】</p>
+<div class="st">step six</div>
+<p>预训练的最后几个百分点：长上下文扩展，退火到零，权重平均。退火用的高质量数据，事先已经用一个训到一半的小模型做过估价。【文中有据，Llama 3 第 6、14 至 15 页】</p>
+<div class="st">step seven</div>
+<p>后训练先分后合：按领域各训一个专家，在可验证的环境里做大规模强化学习，再蒸馏回一个模型；强化学习的预算用 S 形曲线外推，环境和奖励成为主要的工作量。说话方式和性格在这一步定型，发布前要单独测谄媚和啰嗦。【文中有据，DeepSeek-V3.2 报告；ScaleRL；OpenAI 关于谄媚的复盘】</p>
+<div class="st">step eight</div>
+<p>发布前做污染分析，按评测集分别估计污染带来的虚高，只报告在统计上有意义的结果。【文中有据，Llama 3 第 33 至 34 页】</p>
+</div>
+<p>这条时间线里，旗舰模型本身只出现在第五步之后。前四步决定了它会是什么样子，而前四步花掉的算力加起来不到它的百分之一。DeepSeek-V3 报告那句<b>不含此前的研究和消融实验</b>的说明，指的就是这些。它们不贵，但它们是决定性的。</p>
+
+<h2>可以带走的两个想法</h2>
+<p>第一个想法是<b>口径</b>。本文里出过问题的地方，几乎都不是方法错了，而是两个实验没有在同一个口径下比较：参数算不算嵌入，计算量算不算输出层，预热按步数还是按比例，指数写两位还是四位小数，token 用哪个分词器计数，污染用多长的 n-gram 判断。每一个在单次实验里都无关紧要，放进跨越六个数量级的外推里就成了几十倍的误差。读任何一份缩放律报告，先把这些口径列出来，再看结论。</p>
+<p>第二个想法是<b>把大问题缩小</b>。损失尖峰、注意力 logit 的增长、数据配比的效果、分词器的好坏，这些看起来只有在大模型上才有意义的问题，都被人找到了在小模型上复现它们的办法：调高学习率，用退火给数据估价，用 1B 模型对比分词器。一个问题一旦能在小模型上复现，就能用小模型的价钱去试几十种补丁。一个团队的研究能力，很大程度上就是把大问题缩小的能力。</p>
+<p>留下来值得做的问题至少有四个。一是下游任务的缩放律：负对数似然可以外推，但从负对数似然到准确率的那条 S 形曲线，目前还要靠旧模型来标定，换一个任务、换一种数据就要重新标定。二是数据质量的度量：现在判断一份数据好不好，仍然要训一个模型来看，便宜的、不用训练的质量指标还没有可靠的。三是规模继续扩大时的可靠性：按图 8 的算法，十几万张卡的同步训练会把一半的时间浪费在故障上，需要不要求所有卡同步的训练方式。四是强化学习之外的奖励：数学和代码可以自动判对错，渲染类任务可以用视觉评审，但写作、建议、陪伴这些用户最常用的场景，奖励仍然来自偏好，而偏好会把模型推向讨好和套话。怎样给<b>说得好</b>造一个不被钻空子的奖励，是后训练里最没有解决的问题。</p>
+
+<h2 id="refs">资料与时间</h2>
+<p>本文引用的报告按时间分三组。数字都追到了下面这些原文的页码、表号或图号；没有公开的内容在正文里标了推断或猜测。</p>
+<details class="code"><summary>展开全部资料</summary>
+<table class="t left">
+<tr><th>时间</th><th>资料</th><th>本文用到的部分</th></tr>
+<tr><td>2025 年 7 月到 2026 年 1 月</td><td>Kimi K2（<a href="https://arxiv.org/abs/2507.20534">2507.20534</a>）· Gemini 2.5（<a href="https://arxiv.org/abs/2507.06261">2507.06261</a>）· ScaleRL（<a href="https://arxiv.org/abs/2510.13786">2510.13786</a>）· Antislop（<a href="https://arxiv.org/abs/2510.15061">2510.15061</a>）· Qwen3-VL（<a href="https://arxiv.org/abs/2511.21631">2511.21631</a>）· DeepSeek-V3.2（<a href="https://arxiv.org/abs/2512.02556">2512.02556</a>）· Anthropic，Claude's new constitution（2026 年 1 月）· Kobak et al.，Science Advances（2025 年 7 月）· DeepSeek-R1 v2（<a href="https://arxiv.org/abs/2501.12948">2501.12948</a>，2026 年 1 月）</td><td>Muon 与 QK-Clip，改写数据，稀疏注意力，强化学习的缩放曲线与算力占比，原生多模态与视频 token，外挂式视觉语言模型，模型腔调</td></tr>
+<tr><td>2025 年上半年</td><td>OLMo 2（<a href="https://arxiv.org/abs/2501.00656">2501.00656</a>）· Qwen3（<a href="https://arxiv.org/abs/2505.09388">2505.09388</a>）· RLRF（<a href="https://arxiv.org/abs/2505.20793">2505.20793</a>）· OpenAI，Expanding on what we missed with sycophancy（2025 年 5 月）</td><td>稳定性清单，中期训练，过度训练，思考预算，渲染奖励，谄媚事故</td></tr>
+<tr><td>2024 年</td><td>Llama 3（<a href="https://arxiv.org/abs/2407.21783">2407.21783</a>）· DeepSeek-V3（<a href="https://arxiv.org/abs/2412.19437">2412.19437</a>）· FineWeb（<a href="https://arxiv.org/abs/2406.17557">2406.17557</a>）· Besiroglu et al.（<a href="https://arxiv.org/abs/2404.10102">2404.10102</a>）· Porian et al.（<a href="https://arxiv.org/abs/2406.19146">2406.19146</a>）· Pearce &amp; Song（<a href="https://arxiv.org/abs/2406.12907">2406.12907</a>）· MiniCPM（<a href="https://arxiv.org/abs/2404.06395">2404.06395</a>）· Hägele et al.（<a href="https://arxiv.org/abs/2405.18392">2405.18392</a>）· Sardana et al.（<a href="https://arxiv.org/abs/2401.00448">2401.00448</a>）· Tülu 3（<a href="https://arxiv.org/abs/2411.15124">2411.15124</a>）</td><td>预算核算，isoFLOP，并行配置，故障统计，数据流水线，调度</td></tr>
+<tr><td>2023 年及以前</td><td>Kaplan et al.（<a href="https://arxiv.org/abs/2001.08361">2001.08361</a>）· Chinchilla（<a href="https://arxiv.org/abs/2203.15556">2203.15556</a>）· GPT-4（<a href="https://arxiv.org/abs/2303.08774">2303.08774</a>）· ZeRO（<a href="https://arxiv.org/abs/1910.02054">1910.02054</a>）· InstructGPT（<a href="https://arxiv.org/abs/2203.02155">2203.02155</a>）· Wortsman et al.（<a href="https://arxiv.org/abs/2309.14322">2309.14322</a>）· Wei et al.（<a href="https://arxiv.org/abs/2206.07682">2206.07682</a>）· Schaeffer et al.（<a href="https://arxiv.org/abs/2304.15004">2304.15004</a>）· LLaMA、Llama 2、GPT-3 的论文</td><td>缩放律的来历，显存账，后训练的起点，涌现之争</td></tr>
+</table>
+</details>
+
+<!-- ===== XRAY BODY BOTTOM START: copy whole block ===== -->
+</main>
+</div>
+<script type="application/json" id="xray-notes">{"v": 1, "doc": {"title": "大模型只训一次，所有决定都在小模型上做完", "source": "主题：基座大模型的完整训练流程", "made": "2026-10-12", "lang": "zh", "file": "D:/Desktop/paper-xray/demos/llm-pretraining-xray/llm-pretraining-xray.html"}, "marks": [{"id": "mllm01", "type": "hl", "quote": "最贵的那次训练只跑一次", "sec": "大模型只训一次，所有决定都在小模型上做完", "t": "2026-10-12T09:02:10.000Z", "prefix": "", "suffix": ""}, {"id": "mllm02", "type": "note", "quote": "实际吞吐稳定在 BF16 峰值的 35% 到 47% 之间", "sec": "算力预算与 6ND", "note": "以后估训练天数，峰值直接按四成打折，再乘九成的有效时间。", "t": "2026-10-12T09:05:31.000Z", "prefix": "", "suffix": ""}, {"id": "mllm03", "type": "fb", "fb": "confused", "quote": "按非嵌入参数计数会系统地扭曲小尺度上的斜率", "sec": "四处口径差异", "t": "2026-10-12T09:09:12.000Z", "prefix": "", "suffix": ""}, {"id": "mllm04", "type": "hl", "quote": "外推的距离有多少个数量级，指数就需要多少位有效数字", "sec": "第三种拟合里的四舍五入", "t": "2026-10-12T09:12:44.000Z", "prefix": "", "suffix": ""}, {"id": "mllm05", "type": "note", "quote": "被删掉的那部分训出来的模型更好", "sec": "去重的反直觉结果", "note": "我们自己的语料是跨快照全局去重的，得回头查一下留下来的那部分是什么成色。", "t": "2026-10-12T09:16:03.000Z", "prefix": "", "suffix": ""}, {"id": "mllm06", "type": "fb", "fb": "verbose", "quote": "这和人背书的经验一致", "sec": "好文本不够用之后的改写", "t": "2026-10-12T09:18:27.000Z", "prefix": "", "suffix": ""}, {"id": "mllm07", "type": "fb", "fb": "confused", "quote": "把动量矩阵正交化", "sec": "换掉 Adam 的 Muon", "t": "2026-10-12T09:23:51.000Z", "prefix": "", "suffix": ""}, {"id": "mllm08", "type": "note", "quote": "两条路线都在抽帧，也都要把像素变成 token", "sec": "看图和看视频的两条路线", "note": "一直以为 Gemini 是逐帧全看的。原来也是每秒一帧，差别在从头一起训和音轨。", "t": "2026-10-12T09:28:09.000Z", "prefix": "", "suffix": ""}, {"id": "mllm09", "type": "hl", "quote": "这些主要改变效率，几乎不动天花板", "sec": "强化学习的预算与缩放曲线", "t": "2026-10-12T09:31:40.000Z", "prefix": "", "suffix": ""}, {"id": "mllm10", "type": "hl", "quote": "瓶颈从算法转到了环境和奖励", "sec": "强化学习的预算与缩放曲线", "t": "2026-10-12T09:33:18.000Z", "prefix": "", "suffix": ""}, {"id": "mllm11", "type": "note", "quote": "一个点赞按钮，就足以通过强化学习改掉一个模型的性格。", "sec": "说人话", "note": "这个例子下周组会可以讲，比讲 reward hacking 的定义直观得多。", "t": "2026-10-12T09:36:02.000Z", "prefix": "", "suffix": ""}, {"id": "mllm12", "type": "fb", "fb": "known", "quote": "全对或全错的时候，所有回答的奖励一样", "sec": "可验证奖励与 GRPO", "t": "2026-10-12T09:39:45.000Z", "prefix": "", "suffix": ""}], "folds": [], "updated": "2026-10-12T09:39:45.000Z", "saved": "2026-10-12T09:39:45.000Z"}</script>
+<script>
+/* ===== XRAY JS START: copy whole block ===== */
+var XRAY = (function () {
+  'use strict';
+  var EN = !/^zh/i.test(document.documentElement.lang || 'zh');
+  var L = EN ? { hl: 'Highlight', note: 'Note', fb: 'Feedback', confused: 'Lost', verbose: 'Too long', known: 'Got it', undo: 'Undo', got: 'Feedback received', saved: 'Saved into this file', dl: 'Downloaded. Replace the old file with it', ph: 'Write a note or a question', toc: 'Contents', theme: 'Theme', pen: 'Annotate', save: 'Save annotations into this file', fold: 'Fold section' }
+               : { hl: '划线', note: '笔记', fb: '反馈', confused: '不懂', verbose: '啰嗦', known: '已懂', undo: '撤销', got: '已收到反馈', saved: '已保存到这个文件', dl: '已下载，用它替换原文件即可', ph: '写笔记或问题', toc: '目录', theme: '明暗', pen: '标注', save: '保存标注到这个文件', fold: '收起本节' };
+  var queue = [], SRC = '', state, dirty = false, handle = null, main, KEY = 'xray:' + decodeURIComponent(location.pathname);
+  var SKIP = 'script,style,svg,.katex-mathml,.xr-ui,.xr-card,.xr-margin,textarea,button,.fk-ctl,.toc';
+
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return [].slice.call((r || document).querySelectorAll(s)); }
+  function now() { return new Date().toISOString(); }
+  function esc(s) { return s.replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  // ---------- source snapshot: taken before any figure, math or mark touches the DOM ----------
+  function snapshot() {
+    var c = document.documentElement.cloneNode(true);
+    c.removeAttribute('data-theme');
+    $$('.xr-ui', c).forEach(function (n) { n.remove(); });
+    SRC = '<!doctype html>\n' + c.outerHTML;
+    var bad = [];
+    $$('.fk-fig', c).forEach(function (h) { if (h.children.length) bad.push('#' + h.id); });
+    if ($('.katex', c)) bad.push('.katex');
+    if (bad.length) console.warn('[XRAY] content was generated before load; move it into XRAY.ready: ' + bad.join(' '));
+  }
+  function serialize() {
+    var json = JSON.stringify(state).replace(/</g, '\\u003c');
+    return SRC.replace(/(<script type="application\/json" id="xray-notes">)[\s\S]*?(<\/script>)/, function (_, a, b) { return a + json + b; });
+  }
+
+  // ---------- state ----------
+  function load() {
+    var emb = {}; try { emb = JSON.parse($('#xray-notes').textContent); } catch (e) {}
+    var loc = null; try { loc = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+    state = emb; state.marks = state.marks || []; state.folds = state.folds || [];
+    if (loc && loc.updated && (!emb.updated || loc.updated > emb.updated)) { state.marks = loc.marks || []; state.folds = loc.folds || []; state.updated = loc.updated; dirty = true; }
+  }
+  function changed() {
+    state.updated = now(); dirty = true;
+    try { localStorage.setItem(KEY, JSON.stringify({ updated: state.updated, marks: state.marks, folds: state.folds })); } catch (e) {}
+    paintDirty(); autosave();
+  }
+  function paintDirty() { var b = $('#xrSave'); if (b) b.classList.toggle('dirty', dirty); }
+
+  // ---------- saving ----------
+  function idb(fn) {
+    return new Promise(function (res) {
+      try { var r = indexedDB.open('xray', 1); r.onupgradeneeded = function () { r.result.createObjectStore('h'); }; r.onsuccess = function () { var tx = r.result.transaction('h', 'readwrite'); fn(tx.objectStore('h'), res); }; r.onerror = function () { res(null); }; } catch (e) { res(null); }
+    });
+  }
+  function getHandle() { return idb(function (s, res) { var q = s.get(KEY); q.onsuccess = function () { res(q.result || null); }; q.onerror = function () { res(null); }; }); }
+  function putHandle(h) { return idb(function (s, res) { s.put(h, KEY); res(true); }); }
+  function fileName() { return decodeURIComponent(location.pathname.split('/').pop() || 'xray.html'); }
+  function write(h) {
+    state.saved = now();
+    return h.createWritable().then(function (w) { return w.write(serialize()).then(function () { return w.close(); }); })
+      .then(function () { dirty = false; paintDirty(); });
+  }
+  var timer = null;
+  function autosave() {
+    if (!handle || !handle.queryPermission) return;
+    clearTimeout(timer);
+    timer = setTimeout(function () { handle.queryPermission({ mode: 'readwrite' }).then(function (p) { if (p === 'granted') write(handle).catch(function () {}); }); }, 800);
+  }
+  function save() {
+    if (window.showSaveFilePicker) {
+      var go = handle ? handle.requestPermission({ mode: 'readwrite' }).then(function (p) { if (p !== 'granted') throw 0; return handle; })
+                      : window.showSaveFilePicker({ suggestedName: fileName(), types: [{ description: 'HTML', accept: { 'text/html': ['.html'] } }] });
+      go.then(function (h) { handle = h; putHandle(h); return write(h); }).then(function () { toast(L.saved); })
+        .catch(function () { if (handle) { handle = null; save(); } });
+      return;
+    }
+    state.saved = now();
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([serialize()], { type: 'text/html' })); a.download = fileName();
+    document.body.appendChild(a); a.click(); a.remove(); dirty = false; paintDirty(); toast(L.dl);
+  }
+
+  // ---------- text index: offsets over visible text, same rules for saving and restoring ----------
+  function nodes() {
+    var out = [], w = document.createTreeWalker(main, NodeFilter.SHOW_TEXT, { acceptNode: function (n) { return n.parentNode && n.parentNode.closest && n.parentNode.closest(SKIP) ? 2 : 1; } });
+    while (w.nextNode()) out.push(w.currentNode);
+    return out;
+  }
+  function index() {
+    var ns = nodes(), starts = [], s = 0, txt = '';
+    ns.forEach(function (n) { starts.push(s); s += n.data.length; txt += n.data; });
+    return { ns: ns, starts: starts, txt: txt };
+  }
+  function rangeOffsets(r, ix) {
+    var a = -1, b = -1;
+    ix.ns.forEach(function (n, k) {
+      if (!r.intersectsNode(n)) return;
+      var lo = n === r.startContainer ? r.startOffset : 0, hi = n === r.endContainer ? r.endOffset : n.data.length;
+      if (hi <= lo) return;
+      if (a < 0) a = ix.starts[k] + lo;
+      b = ix.starts[k] + hi;
+    });
+    return a < 0 ? null : [a, b];
+  }
+  function wrap(a, b, m) {
+    var ix = index(), first = null;
+    ix.ns.forEach(function (n, k) {
+      var s = ix.starts[k], e = s + n.data.length, lo = Math.max(a, s) - s, hi = Math.min(b, e) - s;
+      if (hi <= lo) return;
+      var mid = n.splitText(lo); mid.splitText(hi - lo);
+      var el = document.createElement('mark');
+      el.className = 'xr-m xr-' + m.type; el.setAttribute('data-id', m.id); if (m.fb) el.setAttribute('data-fb', m.fb);
+      el.title = m.type === 'fb' ? L[m.fb] : '';
+      mid.parentNode.replaceChild(el, mid); el.appendChild(mid);
+      if (!first) first = el;
+    });
+    return first;
+  }
+  function anchor(m) {
+    var ix = index(), best = -1, score = -1, i = ix.txt.indexOf(m.quote);
+    while (i >= 0) {
+      var p = ix.txt.slice(Math.max(0, i - m.prefix.length), i), q = ix.txt.slice(i + m.quote.length, i + m.quote.length + m.suffix.length), sc = 0;
+      for (var k = 1; k <= p.length && p[p.length - k] === m.prefix[m.prefix.length - k]; k++) sc++;
+      for (k = 0; k < q.length && q[k] === m.suffix[k]; k++) sc++;
+      if (sc > score) { score = sc; best = i; }
+      i = ix.txt.indexOf(m.quote, i + 1);
+    }
+    return best < 0 ? null : wrap(best, best + m.quote.length, m);
+  }
+  function section(el) {
+    var h = null, n = el;
+    while (n && n !== main) {
+      var p = n.previousElementSibling;
+      while (p) { if (/^H[23]$/.test(p.tagName)) { h = p; break; } if (p.classList && p.classList.contains('xr-sec')) { var hh = $$('h2,h3', p).pop(); if (hh) { h = hh; break; } } p = p.previousElementSibling; }
+      if (h) break; n = n.parentNode;
+    }
+    return h ? h.textContent.replace(/^[▾▸]\s*/, '').trim() : '';
+  }
+
+  // ---------- marks ----------
+  function add(type, fb) {
+    var sel = getSelection(); if (!sel.rangeCount) return;
+    var r = sel.getRangeAt(0), ix = index(), off = rangeOffsets(r, ix); if (!off) return;
+    var m = { id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), type: type, quote: ix.txt.slice(off[0], off[1]), prefix: ix.txt.slice(Math.max(0, off[0] - 32), off[0]), suffix: ix.txt.slice(off[1], off[1] + 32), t: now() };
+    if (fb) m.fb = fb;
+    if (type === 'note') m.note = '';
+    var el = wrap(off[0], off[1], m); if (!el) return;
+    m.sec = section(el); state.marks.push(m); sel.removeAllRanges(); hideBar();
+    if (type === 'note') { cards(); var ta = $('.xr-card[data-id="' + m.id + '"] textarea'); if (ta) ta.focus(); }
+    if (type === 'fb') toast(L.got + ' · ' + L[fb]);
+    changed();
+  }
+  function remove(id) {
+    $$('mark.xr-m[data-id="' + id + '"]').forEach(function (el) { var p = el.parentNode; while (el.firstChild) p.insertBefore(el.firstChild, el); p.removeChild(el); p.normalize(); });
+    state.marks = state.marks.filter(function (m) { return m.id !== id; });
+    cards(); changed();
+  }
+
+  // ---------- margin cards ----------
+  var margin;
+  function cards() {
+    $$('.xr-card').forEach(function (c) { c.remove(); });
+    if (!margin) { margin = document.createElement('div'); margin.className = 'xr-margin'; main.appendChild(margin); }
+    var notes = state.marks.some(function (m) { return m.type === 'note'; }), mw = main.getBoundingClientRect().width;
+    var wide = notes && mw >= 960;
+    main.style.setProperty('--measure', wide ? 'min(88ch, ' + (mw - 330) + 'px)' : '88ch');
+    var probe = $('main > p, .xr-sec > p') || main, mr = main.getBoundingClientRect(), right = Math.min(probe.getBoundingClientRect().right - mr.left, mr.width);
+    margin.style.left = (right + 30) + 'px'; margin.style.width = Math.min(300, mr.width - right - 36) + 'px';
+    var y = 0;
+    state.marks.filter(function (m) { return m.type === 'note'; }).forEach(function (m) {
+      var el = $('mark.xr-m[data-id="' + m.id + '"]'); if (!el || el.closest('.xr-sec.closed')) return;
+      var c = document.createElement('div'); c.className = 'xr-card' + (wide ? '' : ' inline'); c.setAttribute('data-id', m.id);
+      c.innerHTML = '<div class="q">' + esc(m.quote) + '</div><textarea rows="1" placeholder="' + L.ph + '"></textarea>';
+      var ta = c.querySelector('textarea'); ta.value = m.note || '';
+      var fit = function () { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+      ta.addEventListener('input', function () { m.note = ta.value; fit(); changed(); });
+      c.addEventListener('mouseenter', function () { $$('mark[data-id="' + m.id + '"]').forEach(function (x) { x.classList.add('flash'); }); });
+      c.addEventListener('mouseleave', function () { $$('mark[data-id="' + m.id + '"]').forEach(function (x) { x.classList.remove('flash'); }); });
+      if (wide) { var top = el.getBoundingClientRect().top - mr.top - 8; top = Math.max(top, y); c.style.top = top + 'px'; margin.appendChild(c); fit(); y = top + c.offsetHeight + 10; }
+      else { var blk = el.closest('p,li,td,blockquote,div') || el; blk.parentNode.insertBefore(c, blk.nextSibling); fit(); }
+    });
+  }
+
+  // ---------- floating UI ----------
+  var bar, menu, toastEl;
+  function ui() {
+    bar = document.createElement('div'); bar.className = 'xr-ui xr-bar';
+    bar.innerHTML = '<button data-a="hl">' + L.hl + '</button><span class="sep"></span><button data-a="note">' + L.note + '</button><span class="sep"></span><button class="fbbtn" data-a="fbopen">' + L.fb + ' ›</button>' +
+      '<button class="fb" data-a="confused">' + L.confused + '</button><button class="fb" data-a="verbose">' + L.verbose + '</button><button class="fb" data-a="known">' + L.known + '</button>';
+    bar.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    bar.addEventListener('click', function (e) {
+      var a = e.target.getAttribute && e.target.getAttribute('data-a'); if (!a) return;
+      if (a === 'fbopen') { bar.classList.add('fbopen'); return; }
+      if (a === 'hl' || a === 'note') add(a); else add('fb', a);
+    });
+    menu = document.createElement('div'); menu.className = 'xr-ui xr-menu'; menu.innerHTML = '<button>' + L.undo + '</button>';
+    toastEl = document.createElement('div'); toastEl.className = 'xr-ui xr-toast';
+    document.body.appendChild(bar); document.body.appendChild(menu); document.body.appendChild(toastEl);
+  }
+  function hideBar() { bar.style.display = 'none'; bar.classList.remove('fbopen'); }
+  function showBar() {
+    if (!document.body.classList.contains('xr-annot')) return hideBar();
+    var s = getSelection(); if (!s.rangeCount || s.isCollapsed) return hideBar();
+    var r = s.getRangeAt(0), c = r.commonAncestorContainer; c = c.nodeType === 1 ? c : c.parentNode;
+    if (!main.contains(c) || c.closest(SKIP) || !s.toString().trim()) return hideBar();
+    var b = r.getBoundingClientRect(); bar.style.display = 'block';
+    bar.style.left = Math.max(8, Math.min(innerWidth - bar.offsetWidth - 8, b.left + b.width / 2 - bar.offsetWidth / 2)) + 'px';
+    bar.style.top = (b.top > 52 ? b.top - bar.offsetHeight - 8 : b.bottom + 8) + 'px';
+  }
+  function toast(msg) {
+    toastEl.innerHTML = '<i>✓</i>' + esc(msg); toastEl.style.display = 'block';
+    requestAnimationFrame(function () { toastEl.classList.add('show'); });
+    clearTimeout(toastEl._t); toastEl._t = setTimeout(function () { toastEl.classList.remove('show'); setTimeout(function () { toastEl.style.display = 'none'; }, 300); }, 1500);
+  }
+
+  // ---------- sections: TOC, folding ----------
+  function slug(s, i) { return 's' + i + '-' + s.toLowerCase().replace(/[^\w一-鿿]+/g, '-').slice(0, 40); }
+  function sections() {
+    var hs = $$('main > h2, main > h3');
+    hs.forEach(function (h, i) { if (!h.id) h.id = slug(h.textContent, i); });
+    ['H2', 'H3'].forEach(function (lv) {
+      $$(lv === 'H2' ? 'main > h2' : 'main > h3, .xr-sec > h3').forEach(function (h) {
+        var box = document.createElement('div'); box.className = 'xr-sec'; var n = h.nextSibling;
+        while (n && !(n.nodeType === 1 && (/^H[12]$/.test(n.tagName) || (lv === 'H3' && n.tagName === 'H3')))) { var nx = n.nextSibling; box.appendChild(n); n = nx; }
+        h.parentNode.insertBefore(box, h.nextSibling);
+        var b = document.createElement('button'); b.className = 'xr-fold'; b.textContent = '▾'; b.title = L.fold; h.insertBefore(b, h.firstChild);
+        b.addEventListener('click', function () { fold(h, !h.classList.contains('folded')); changed(); });
+      });
+    });
+    state.folds.forEach(function (id) { var h = document.getElementById(id); if (h) fold(h, true); });
+    var toc = $('.toc'); toc.innerHTML = '';
+    hs.forEach(function (h) { var a = document.createElement('a'); a.href = '#' + h.id; a.className = h.tagName.toLowerCase(); a.textContent = h.textContent.replace(/^[▾▸]\s*/, ''); toc.appendChild(a); });
+  }
+  function fold(h, on) {
+    h.classList.toggle('folded', on); var box = h.nextElementSibling; if (box && box.classList.contains('xr-sec')) box.classList.toggle('closed', on);
+    state.folds = state.folds.filter(function (x) { return x !== h.id; }); if (on) state.folds.push(h.id);
+    if (margin) cards();
+  }
+  function tocTrack() {
+    var links = $$('.toc a'), hs = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+    var cur = 0; hs.forEach(function (h, i) { if (h && h.offsetParent && h.getBoundingClientRect().top < 120) cur = i; });
+    links.forEach(function (a, i) { a.classList.toggle('cur', i === cur); });
+  }
+
+  // ---------- lint: called by ?lint and by the author before delivery ----------
+  function lint() {
+    var out = [], Q = EN ? /\?|^(what|why|how|which|when|where)\b/i : /[？?]|什么|为什么|怎么|怎样|如何|哪|吗|呢/;
+    $$('main h1, main h2, main h3').forEach(function (h) { var t = h.textContent.replace(/^[▾▸]\s*/, ''); if (Q.test(t)) out.push('heading reads as a question: ' + t); });
+    var txt = index().txt, dash = (txt.match(/——|—/g) || []).length, quotes = (txt.match(EN ? /[“”]/g : /[“”「」]/g) || []).length;
+    if (dash > 3) out.push('dashes in prose: ' + dash + ' (bold instead)');
+    if (quotes > 6) out.push('quotation marks in prose: ' + quotes + ' (bold instead)');
+    var md = $$('main p, main li, main td, main th').map(function (e) { return e.textContent; }).join('\n').match(/\*\*[^*\n]+\*\*|(^|\n)#{1,4} /g);
+    if (md) out.push('markdown left in HTML (use <b>): ' + md.slice(0, 3).join(' | '));
+    $$('.fk-fig').forEach(function (h) { if (!h.children.length) out.push('empty figure host #' + h.id); });
+    if (!$('#xray-notes')) out.push('missing #xray-notes block');
+    try { var d = JSON.parse($('#xray-notes').textContent).doc || {}; if (!d.title || !d.made) out.push('#xray-notes doc.title / doc.made empty'); } catch (e) { out.push('#xray-notes is not JSON'); }
+    if (/[?&]lint/.test(location.search)) { var pre = document.createElement('pre'); pre.id = 'xr-lint'; pre.textContent = out.length ? out.join('\n') : 'XRAY.lint ok'; document.body.appendChild(pre); }
+    out.forEach(function (m) { console.warn('[XRAY.lint] ' + m); });
+    return out;
+  }
+
+  // ---------- boot ----------
+  function boot() {
+    snapshot(); load(); main = $('main');
+    queue.forEach(function (fn) { try { fn(); } catch (e) { console.error(e); } });
+    if (window.renderMathInElement) renderMathInElement(main, { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '\\[', right: '\\]', display: true }, { left: '$', right: '$', display: false }, { left: '\\(', right: '\\)', display: false }], trust: true, strict: false, macros: { '\\role': '\\htmlClass{r-#1}{#2}' }, ignoredTags: ['script', 'style', 'pre', 'svg', 'textarea'] });
+    sections(); ui();
+    state.marks.forEach(anchor);
+    paintDirty();
+    var top = $('.top'); $('#xrNav').title = L.toc; $('#xrTheme').title = L.theme; $('#xrPen').title = L.pen; $('#xrSave').title = L.save;
+    $('#xrNav').onclick = function () { document.body.classList.toggle(innerWidth <= 1100 ? 'nav-open' : 'nav-hidden'); setTimeout(cards, 50); };
+    $('#xrTheme').onclick = function () { var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('theme', t); } catch (e) {} };
+    var pen = $('#xrPen'), penOn = false; try { penOn = localStorage.getItem('xray:pen') === '1'; } catch (e) {}
+    function setPen(on) { penOn = on; document.body.classList.toggle('xr-annot', on); pen.classList.toggle('on', on); try { localStorage.setItem('xray:pen', on ? '1' : '0'); } catch (e) {} if (!on) hideBar(); }
+    setPen(penOn); pen.onclick = function () { setPen(!penOn); };
+    $('#xrSave').onclick = save;
+    $$('.toc a').forEach(function (a) { a.addEventListener('click', function () { document.body.classList.remove('nav-open'); var h = document.getElementById(a.getAttribute('href').slice(1)); var s = h && h.closest('.xr-sec.closed'); if (s) fold(s.previousElementSibling, false); }); });
+    document.addEventListener('mouseup', function () { setTimeout(showBar, 0); });
+    document.addEventListener('keyup', function (e) { if (e.shiftKey) showBar(); if (e.key === 'Escape') { hideBar(); menu.style.display = 'none'; } });
+    document.addEventListener('mousedown', function (e) { if (!bar.contains(e.target)) hideBar(); if (!menu.contains(e.target)) menu.style.display = 'none'; });
+    document.addEventListener('contextmenu', function (e) {
+      var t = e.target.closest && e.target.closest('mark.xr-m, .xr-card'); if (!t) return;
+      e.preventDefault(); var id = t.getAttribute('data-id');
+      menu.style.display = 'block'; menu.style.left = Math.min(e.clientX, innerWidth - 90) + 'px'; menu.style.top = e.clientY + 'px';
+      menu.querySelector('button').onclick = function () { menu.style.display = 'none'; remove(id); };
+    });
+    var prog = $('#progress'), pt = null;
+    addEventListener('scroll', function () {
+      var h = document.documentElement.scrollHeight - innerHeight; prog.style.width = (h > 0 ? scrollY / h * 100 : 0) + '%'; prog.style.opacity = '.38';
+      clearTimeout(pt); pt = setTimeout(function () { prog.style.opacity = '0'; }, 1200); tocTrack(); hideBar();
+    }, { passive: true });
+    addEventListener('resize', function () { cards(); });
+    tocTrack();
+    getHandle().then(function (h) { handle = h; });
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(function () { cards(); if (/[?&]lint/.test(location.search)) { lint(); if (window.FK && FK.lint) FK.lint(); } });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else setTimeout(boot, 0);
+
+  return { ready: function (fn) { queue.push(fn); }, serialize: serialize, save: save, lint: lint, state: function () { return state; }, add: add, remove: remove };
+})();
+/* ===== XRAY JS END ===== */
+</script>
+<!-- ===== XRAY BODY BOTTOM END ===== -->
+<script>
+/* ===== FIGKIT JS START — copy whole block ===== */
+var FK = (function () {
+  'use strict';
+  var NS = 'http://www.w3.org/2000/svg';
+  // all sizes scale from box height 60
+  var S = { h: 60, gap: 15, gapDot: 18, rx: 4.6, add: 8.2, dot: 2.4, aL: 6, aW: 5.2,
+            fs: 13, lh: 15.6, fsSmall: 12, fsIO: 15, lift: 60.8, stackPadX: 9.2, stackPadY: 78, pe: 13.2 };
+  var W = { s: 33, m: 60, ffn: 73, l: 91, xl: 85 };
+  var GREEK = { alpha:'α',beta:'β',gamma:'γ',delta:'δ',epsilon:'ε',eta:'η',theta:'θ',lambda:'λ',mu:'μ',pi:'π',sigma:'σ',tau:'τ',phi:'φ',psi:'ψ',omega:'ω',
+    Delta:'Δ',Sigma:'Σ',Omega:'Ω',Phi:'Φ',in:'∈',times:'×',cdot:'·',to:'→',mapsto:'↦',top:'⊤',sum:'Σ',le:'≤',ge:'≥',approx:'≈',infty:'∞',odot:'⊙',oplus:'⊕',ldots:'…',partial:'∂',nabla:'∇' };
+  var BB = { R:'ℝ', N:'ℕ', Z:'ℤ', E:'𝔼', C:'ℂ', Q:'ℚ' };
+  var WORDS = /^(softmax|Attn|LN|exp|log|max|min|sin|cos|tanh|ReLU|GELU|Linear|Sublayer|MLP|FFN|concat|diag|Var|argmax|sigmoid|Norm|RMSNorm|LayerNorm|Conv|Dropout|KL|CE|Loss|Attention)/;
+
+  function el(tag, a, parent) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in a) if (a[k] !== undefined && a[k] !== null) n.setAttribute(k, a[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  // TeX subset -> tspans: ^ _ {} \role{r}{..} \htmlClass{r-x}{..} \mathbf \mathrm \text \texttt \mathbb greek
+  function rich(t, src, fs) {
+    var i = 0, base = 0;
+    function grp() { // one atom: {...}, a command, or a char
+      if (src[i] === '{') { var d = 1, j = ++i; while (i < src.length && d) { if (src[i] === '{') d++; else if (src[i] === '}') d--; i++; } return src.slice(j, i - 1); }
+      if (src[i] === '\\') { var m = /^\\[A-Za-z]+/.exec(src.slice(i)); if (m) { i += m[0].length; return m[0]; } }
+      return src[i++];
+    }
+    function emit(txt, cls, shift, size) {
+      if (!txt) return;
+      var a = { 'class': cls || null };
+      var dy = shift - base; if (dy) a.dy = dy.toFixed(2);
+      base = shift; if (size) a['font-size'] = size;
+      el('tspan', a, t).textContent = txt;
+    }
+    function run(s, ctx) {
+      var k = 0;
+      while (k < s.length) {
+        var c = s[k];
+        if (c === '\\') {
+          var m = /^\\([A-Za-z]+|.)/.exec(s.slice(k)); k += m[0].length; var cmd = m[1];
+          var take = function () { src = s; i = k; var g = grp(); k = i; return g; };
+          if (cmd === 'role' || cmd === 'htmlClass') { var r = take().replace(/^r-/, ''); run(take(), Object.assign({}, ctx, { role: 'r-' + r })); }
+          else if (cmd === 'mathbf' || cmd === 'bm') run(take(), Object.assign({}, ctx, { font: 'bf' }));
+          else if (cmd === 'mathrm' || cmd === 'text' || cmd === 'operatorname') run(take(), Object.assign({}, ctx, { font: 'rm' }));
+          else if (cmd === 'texttt' || cmd === 'mathtt') run(take(), Object.assign({}, ctx, { font: 'tt' }));
+          else if (cmd === 'mathbb') { var b = take(); emit(BB[b] || b, cls(ctx, 'rm'), ctx.shift, ctx.size); }
+          else if (cmd === 'sqrt') { emit('√', cls(ctx, 'rm'), ctx.shift, ctx.size); run(take(), ctx); }
+          else if (cmd === ',' || cmd === ';' || cmd === ' ' || cmd === 'quad') emit(cmd === 'quad' ? ' ' : ' ', null, ctx.shift, ctx.size);
+          else if (cmd === '{' || cmd === '}') emit(cmd, cls(ctx, 'rm'), ctx.shift, ctx.size);
+          else if (GREEK[cmd]) emit(GREEK[cmd], cls(ctx, /^[a-z]/.test(cmd) && cmd.length > 2 && 'alphabetagammadeltaepsilonetathetalambdamupisigmatauphipsiomega'.indexOf(cmd) >= 0 ? 'mi' : 'rm'), ctx.shift, ctx.size);
+          else emit(cmd, cls(ctx, 'rm'), ctx.shift, ctx.size);
+        } else if (c === '^' || c === '_') {
+          k++; src = s; i = k; var g = grp(); k = i;
+          var sz = (ctx.size || fs) * 0.72;
+          var sh = (ctx.shift || 0) + (c === '^' ? -0.38 : 0.24) * (ctx.size || fs);
+          run(g, Object.assign({}, ctx, { shift: sh, size: sz.toFixed(2) }));
+        } else if (c === '{') {
+          src = s; i = k; var gg = grp(); k = i; run(gg, ctx);
+        } else if (c === ' ') { emit(' ', null, ctx.shift, ctx.size); k++; }
+        else if (/[A-Za-z]/.test(c)) {
+          var w = WORDS.exec(s.slice(k));
+          if (w && ctx.font === 'mi') { emit(w[0], cls(ctx, 'rm'), ctx.shift, ctx.size); k += w[0].length; }
+          else { emit(c, cls(ctx, ctx.font), ctx.shift, ctx.size); k++; }
+        } else { emit(c, cls(ctx, 'rm'), ctx.shift, ctx.size); k++; }
+      }
+    }
+    function cls(ctx, font) { return [font === 'rm' ? '' : font, ctx.role || ''].join(' ').trim() || null; }
+    run(src, { font: 'mi', shift: 0, size: null, role: null });
+    if (base) el('tspan', { dy: (-base).toFixed(2) }, t).textContent = '​';
+    return t;
+  }
+
+  function Fig(host, w, h, label) {
+    host = typeof host === 'string' ? document.querySelector(host) : host;
+    this.w = w; this.h = h; this.at = {};
+    this.svg = el('svg', { 'class': 'fk', viewBox: '0 0 ' + w + ' ' + h, role: 'img', 'aria-label': label || '' }, host);
+    this.svg.style.minWidth = Math.round(w * 0.82) + 'px';      // scroll rather than shrink text
+    this.svg.style.maxWidth = Math.round(w * 1.1) + 'px';       // small figures never blow up
+    this.gS = el('g', {}, this.svg); this.gW = el('g', {}, this.svg); this.gB = el('g', {}, this.svg); this.gT = el('g', {}, this.svg);
+  }
+  var P = Fig.prototype;
+
+  P.p = function (ref) {
+    if (Array.isArray(ref)) return ref;
+    var s = ref.split('.'), a = this.at[s[0]]; if (!a) throw new Error('FK: unknown id ' + s[0]);
+    var side = s[1] || 'c';
+    return side === 'l' ? [a.x - a.w / 2, a.y] : side === 'r' ? [a.x + a.w / 2, a.y] : side === 't' ? [a.x, a.y - a.h / 2] : side === 'b' ? [a.x, a.y + a.h / 2] : [a.x, a.y];
+  };
+
+  P.label = function (txt, x, y, o) {
+    o = o || {};
+    var t = el('text', { x: x, y: y, 'text-anchor': o.anchor || 'middle', 'font-size': o.size || S.fs, 'class': o.cls || null }, o.parent || this.gT);
+    rich(t, txt, o.size || S.fs);
+    return t;
+  };
+
+  P.box = function (id, o) {
+    var w = typeof o.w === 'number' ? o.w : (W[o.w] || W.m), h = o.h || S.h;
+    var g = el('g', { 'class': 'blk r-' + (o.role || 'op'), 'data-id': id }, this.gB);
+    el('rect', { x: o.x - w / 2, y: o.y - h / 2, width: w, height: h, rx: S.rx }, g);
+    var lines = String(o.text).split('\n'), y0 = o.y - (lines.length - 1) * S.lh / 2;
+    lines.forEach(function (ln, k) { el('text', { x: o.x, y: y0 + k * S.lh, 'text-anchor': 'middle', 'font-size': S.fs }, g).textContent = ln; });
+    if (o.param) this.label(o.param, o.x, o.y + h / 2 + 12, { size: S.fsSmall, cls: 'param' });
+    this.at[id] = { x: o.x, y: o.y, w: w, h: h, kind: 'box', g: g };
+    return g;
+  };
+  P.add = function (id, o) {
+    var g = el('g', { 'class': 'add', 'data-id': id }, this.gB), r = S.add, a = r * 0.5;
+    el('circle', { cx: o.x, cy: o.y, r: r }, g);
+    el('path', { d: 'M' + (o.x - a) + ' ' + o.y + 'H' + (o.x + a) + 'M' + o.x + ' ' + (o.y - a) + 'V' + (o.y + a) }, g);
+    this.at[id] = { x: o.x, y: o.y, w: 2 * r, h: 2 * r, kind: 'add', g: g };
+  };
+  P.dot = function (id, o) {
+    el('circle', { 'class': 'dot', cx: o.x, cy: o.y, r: S.dot }, this.gB);
+    this.at[id] = { x: o.x, y: o.y, w: 0, h: 0, kind: 'dot' };
+  };
+
+  // orthogonal polyline; arrow tip lands exactly on the end point
+  P.wire = function (pts, o) {
+    o = o || {}; var self = this;
+    pts = pts.map(function (q) { return self.p(q); });
+    var n = pts.length, a = pts[n - 2], b = pts[n - 1], arrow = o.arrow !== false;
+    var dx = Math.sign(b[0] - a[0]), dy = Math.sign(b[1] - a[1]);
+    var end = arrow ? [b[0] - dx * S.aL * 0.8, b[1] - dy * S.aL * 0.8] : b;
+    var d = 'M' + pts.slice(0, n - 1).map(function (q) { return q[0] + ' ' + q[1]; }).join('L') + 'L' + end[0] + ' ' + end[1];
+    var role = o.role ? ' r-' + o.role : '';
+    var path = el('path', { d: d, 'class': 'wire' + role + (o.cls ? ' ' + o.cls : ''), 'data-pts': JSON.stringify(pts) }, this.gW);
+    if (arrow) {
+      var px = -dy, py = dx, L = S.aL, Wd = S.aW / 2;
+      el('path', { 'class': 'head' + role, d: 'M' + b[0] + ' ' + b[1] + 'L' + (b[0] - dx * L + px * Wd) + ' ' + (b[1] - dy * L + py * Wd) + 'L' + (b[0] - dx * L - px * Wd) + ' ' + (b[1] - dy * L - py * Wd) + 'Z' }, this.gW);
+    }
+    return path;
+  };
+
+  // one row: auto spacing, auto arrows (no arrowhead into a dot)
+  P.row = function (y, x0, items) {
+    var x = x0, prev = null, self = this;
+    items.forEach(function (it, k) {
+      var kind = it.add ? 'add' : it.dot ? 'dot' : 'box';
+      var w = kind === 'add' ? 2 * S.add : kind === 'dot' ? 0 : (typeof it.w === 'number' ? it.w : (W[it.w] || W.m));
+      if (k) x += it.gap !== undefined ? it.gap : (kind === 'dot' || (prev && prev.kind === 'dot')) ? S.gapDot : S.gap;
+      var cx = x + w / 2;
+      if (kind === 'box') self.box(it.id, { x: cx, y: y, w: w, role: it.role, text: it.box, param: it.param });
+      else if (kind === 'add') self.add(it.id, { x: cx, y: y });
+      else self.dot(it.id, { x: cx, y: y });
+      if (prev && it.link !== false) self.wire([[prev.r, y], [x, y]], { arrow: kind !== 'dot' });
+      x += w; prev = { kind: kind, r: x };
+    });
+    return x;
+  };
+
+  P.skip = function (from, to, side) {
+    var a = this.p(from), b = this.p(to), up = side !== 'bottom', yy = a[1] + (up ? -S.lift : S.lift);
+    this.wire([a, [a[0], yy], [b[0], yy], [b[0], b[1] + (up ? -S.add : S.add)]]);
+  };
+  P.stack = function (from, to, o) {
+    o = o || {};
+    var a = this.p(from + '.l'), b = this.p(to + '.r'), x0 = a[0] - S.stackPadX, x1 = b[0] + S.stackPadX;
+    var y0 = a[1] - S.stackPadY, y1 = a[1] + S.stackPadY;
+    el('rect', { 'class': 'stack', x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: 11.5 }, this.gS);
+    if (o.label) this.label(o.label, (x0 + x1) / 2, o.side === 'bottom' ? y1 + 14 : y0 - 13, { size: 13.5, cls: 'note' });
+  };
+  P.pe = function (addId, side) {
+    var a = this.p(addId), up = side !== 'bottom', cy = a[1] + (up ? -65.4 : 65.4), r = S.pe, g = el('g', { 'class': 'pe' }, this.gB);
+    el('circle', { cx: a[0], cy: cy, r: r }, g);
+    el('path', { d: 'M' + (a[0] - r * .62) + ' ' + cy + 'C' + (a[0] - r * .35) + ' ' + (cy - r * 1.05) + ' ' + (a[0] - r * .1) + ' ' + (cy - r * .8) + ' ' + a[0] + ' ' + cy + 'S' + (a[0] + r * .35) + ' ' + (cy + r * 1.05) + ' ' + (a[0] + r * .62) + ' ' + cy }, g);
+    this.wire([[a[0], cy + (up ? r : -r)], [a[0], a[1] + (up ? -S.add : S.add)]]);
+    this.label('PE', a[0] - r - 6, cy, { anchor: 'end', size: 12, cls: 'note' });
+  };
+  P.io = function (txt, o) {
+    var len = o.len || 26.8, lines = txt.split('\n'), x, y, anchor;
+    if (o.to) { var b = this.p(o.to + '.l'); this.wire([[b[0] - len, b[1]], b], { role: o.role }); x = b[0] - len - 8; y = b[1]; anchor = 'end'; }
+    else { var a = this.p(o.from + '.r'); this.wire([a, [a[0] + len, a[1]]], { role: o.role }); x = a[0] + len + 8; y = a[1]; anchor = 'start'; }
+    var self = this, y0 = y - (lines.length - 1) * 17 / 2 - (o.sub ? 7 : 0);
+    lines.forEach(function (ln, k) { self.label('\\text{' + ln + '}', x, y0 + k * 17, { anchor: anchor, size: S.fsIO, cls: 'r-' + o.role }); });
+    if (o.sub) this.label('\\text{' + o.sub + '}', x, y0 + lines.length * 17 - 2, { anchor: anchor, size: 12, cls: 'r-' + o.role });
+  };
+  // zoom panel: box `id` opens into a framed panel at (x, y, w, h) with a gray header `title`.
+  // o.build(z) draws inside the panel with the same API; z's (0,0) is the panel body's top-left.
+  // o.closed: start folded; clicking the box toggles the panel either way.
+  P.zoom = function (id, o) {
+    var a = this.at[id], hd = 30;
+    var g = el('g', { 'class': 'zoom' }, this.zl || this.svg);
+    var b = { x0: a.x - a.w / 2, y0: a.y - a.h / 2, x1: a.x + a.w / 2, y1: a.y + a.h / 2 };
+    var q = { x0: o.x, y0: o.y, x1: o.x + o.w, y1: o.y + o.h }, poly;
+    if (q.x0 >= b.x1) poly = [[b.x1, b.y0], [q.x0, q.y0], [q.x0, q.y1], [b.x1, b.y1]];
+    else if (q.x1 <= b.x0) poly = [[b.x0, b.y0], [q.x1, q.y0], [q.x1, q.y1], [b.x0, b.y1]];
+    else if (q.y1 <= b.y0) poly = [[b.x0, b.y0], [q.x0, q.y1], [q.x1, q.y1], [b.x1, b.y0]];
+    else poly = [[b.x0, b.y1], [q.x0, q.y0], [q.x1, q.y0], [b.x1, b.y1]];
+    var wg = el('g', { 'class': 'zoom' }, this.gS);   // the wedge sits under the boxes it passes over
+    el('path', { 'class': 'zwedge', d: 'M' + poly.map(function (p) { return p.join(' '); }).join('L') + 'Z' }, wg);
+    el('path', { 'class': 'zedge', d: 'M' + poly[0].join(' ') + 'L' + poly[1].join(' ') + 'M' + poly[3].join(' ') + 'L' + poly[2].join(' ') }, wg);
+    el('rect', { 'class': 'zframe', x: q.x0, y: q.y0, width: o.w, height: o.h, rx: 3 }, g);
+    el('rect', { 'class': 'zhead', x: q.x0 + 1.1, y: q.y0 + 1.1, width: o.w - 2.2, height: hd }, g);
+    var z = Object.create(P);
+    var body = el('g', { transform: 'translate(' + q.x0 + ',' + (q.y0 + hd) + ')' }, g);
+    z.svg = this.svg; z.w = o.w; z.h = o.h - hd; z.at = {};
+    z.gS = el('g', {}, body); z.gW = el('g', {}, body); z.gB = el('g', {}, body); z.gT = el('g', {}, body); z.zl = body;
+    this.label('\\text{' + o.title + '}', q.x0 + o.w / 2, q.y0 + hd / 2 + 1, { size: 15, cls: 'ztitle', parent: g });
+    if (o.build) o.build(z);
+    var cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    g.style.transformBox = 'view-box'; g.style.transformOrigin = cx + 'px ' + cy + 'px';
+    function set(open) { g.classList.toggle('off', !open); wg.classList.toggle('off', !open); g.style.transform = open ? '' : 'scale(.2)'; a.g.classList.toggle('zopen', open); }
+    a.g.classList.add('zsrc'); a.g.addEventListener('click', function (e) { e.stopPropagation(); set(g.classList.contains('off')); });
+    set(!o.closed);
+    return z;
+  };
+  P.note = function (txt, x, y, anchor) { return this.label(txt, x, y, { anchor: anchor || 'middle', size: S.fsSmall, cls: 'note' }); };
+  P.math = function (src, x, y, anchor) { return this.label(src, x, y, { anchor: anchor || 'middle', size: 14 }); };
+  P.light = function (ids) {
+    var self = this;
+    Object.keys(this.at).forEach(function (k) { var a = self.at[k]; if (a.g) a.g.classList.toggle('on', ids.indexOf(k) >= 0); });
+  };
+
+  // text heat. o.tokens: words. o.w: weights, o.w[i][j] = how much token i draws on token j (any scale, rescaled per row).
+  // mode 'ladder' (default): one row per token i, token i in the query color, tokens before it glow by o.w[i][j].
+  // mode 'pick': one row; hover or click a token to make it the query; arrow keys move it. o.say(i, j, v) fills the read-out.
+  function heatGlow(v) { var a = Math.round(v * 78), b = Math.round(v * 34); return v < .02 ? 'none' : 'radial-gradient(closest-side, color-mix(in srgb, var(--k) ' + a + '%, transparent), color-mix(in srgb, var(--k) ' + b + '%, transparent) 62%, transparent)'; }
+  function heat(host, o) {
+    host = typeof host === 'string' ? document.querySelector(host) : host; host.innerHTML = '';
+    var n = o.tokens.length, mode = o.mode || 'ladder', root = document.createElement('div');
+    root.className = 'fk-heat ' + mode + (o.frame === false ? '' : mode === 'ladder' ? ' box' : '');
+    root.style.setProperty('--k', 'var(--' + (o.role || 'in') + ')'); root.style.setProperty('--q', 'var(--' + (o.qrole || 'loss') + ')');
+    root.setAttribute('role', 'img'); root.setAttribute('aria-label', o.label || 'attention over tokens');
+    host.appendChild(root);
+    function norm(row, i) { var m = 0; row.forEach(function (v, j) { if (j !== i) m = Math.max(m, v); }); return row.map(function (v) { return m ? v / m : 0; }); }
+    function paint(row, i, spans) { var w = norm(row, i); spans.forEach(function (sp, j) { sp.className = 'tk' + (j === i ? ' q' : ''); sp.style.background = j === i ? 'none' : heatGlow(w[j]); }); }
+    if (mode === 'ladder') {
+      for (var i = 0; i < n; i++) {
+        var r = document.createElement('div'); r.className = 'row'; root.appendChild(r);
+        var spans = o.tokens.map(function (t) { var sp = document.createElement('span'); sp.textContent = t; r.appendChild(sp); return sp; });
+        var row = o.w[i].map(function (v, j) { return j < i ? v : 0; }); paint(row, i, spans);
+        spans.forEach(function (sp, j) { if (j > i) sp.className = 'tk later'; });
+      }
+      return { root: root };
+    }
+    var r2 = document.createElement('div'); r2.className = 'row'; root.appendChild(r2); root.tabIndex = 0;
+    var sp2 = o.tokens.map(function (t) { var sp = document.createElement('span'); sp.textContent = t; r2.appendChild(sp); return sp; });
+    var ctl = o.ctl ? (typeof o.ctl === 'string' ? document.querySelector(o.ctl) : o.ctl) : null, cur = o.start || 0;
+    function pick(i) {
+      cur = i; var row = o.causal ? o.w[i].map(function (v, j) { return j < i ? v : 0; }) : o.w[i]; paint(row, i, sp2);
+      var bj = -1, bv = -1; row.forEach(function (v, j) { if (j !== i && v > bv) { bv = v; bj = j; } });
+      if (ctl) ctl.innerHTML = o.say ? o.say(i, bj, bv) : '<span class="say">' + o.tokens[i] + ' → ' + (bj >= 0 && bv > 0 ? o.tokens[bj] + ' ' + bv.toFixed(2) : '·') + '</span>';
+    }
+    sp2.forEach(function (sp, j) { sp.addEventListener('mouseenter', function () { pick(j); }); sp.addEventListener('click', function () { pick(j); }); });
+    root.addEventListener('keydown', function (e) { if (e.key === 'ArrowRight') pick(Math.min(n - 1, cur + 1)); if (e.key === 'ArrowLeft') pick(Math.max(0, cur - 1)); });
+    pick(cur);
+    return { root: root, pick: pick };
+  }
+
+  // isometric plates in the Hairline manner: line drawing, opaque plates, no words inside, names go to the read-out.
+  // o.layers: [{name, role}] bottom to top. The pointer's height picks a layer (tested against the rest pose); the plates above it lift.
+  function iso(host, o) {
+    host = typeof host === 'string' ? document.querySelector(host) : host; host.innerHTML = '';
+    var Lr = o.layers, n = Lr.length, W0 = o.w || 150, D0 = o.d || 100, T = o.t || 7, R = o.r || 9, open = o.open || 34;
+    var gap = o.gap || 16, rest = Lr.map(function (_, i) { return i * gap + i * i * 1.6; });   // gaps widen upward: rest is a composition, not a pile
+    var svg = el('svg', { 'class': 'fk-iso', viewBox: '0 0 400 320', role: 'img', 'aria-label': o.label || 'layers' }, host);
+    var ctl = o.ctl ? (typeof o.ctl === 'string' ? document.querySelector(o.ctl) : o.ctl) : null;
+    var c30 = Math.cos(Math.PI / 6), s30 = .5, ztop = rest[n - 1] + open, zbot = T + 10;   // fit the most open pose, not the rest pose
+    var S = o.scale || Math.min(1.6, 290 / ((W0 + D0) * s30 + ztop + zbot), 370 / ((W0 + D0) * c30)), cyOff = 160 + (ztop - zbot) * S / 2;
+    function P(x, y, z) { return [200 + (x - y) * c30 * S, cyOff + (x + y) * s30 * S - z * S]; }
+    function ring(z) {
+      var pts = [], cs = [[W0 / 2 - R, D0 / 2 - R, 0], [-W0 / 2 + R, D0 / 2 - R, 90], [-W0 / 2 + R, -D0 / 2 + R, 180], [W0 / 2 - R, -D0 / 2 + R, 270]];
+      cs.forEach(function (c) { for (var k = 0; k <= 6; k++) { var t = (c[2] + k * 15) * Math.PI / 180; pts.push(P(c[0] + R * Math.cos(t), c[1] + R * Math.sin(t), z)); } });
+      return pts;
+    }
+    function hull(p) {
+      p = p.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+      function cr(o2, a, b) { return (a[0] - o2[0]) * (b[1] - o2[1]) - (a[1] - o2[1]) * (b[0] - o2[0]); }
+      var lo = [], up = [];
+      p.forEach(function (q) { while (lo.length > 1 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); });
+      p.slice().reverse().forEach(function (q) { while (up.length > 1 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); });
+      return lo.slice(0, -1).concat(up.slice(0, -1));
+    }
+    function d(pts, close) { return 'M' + pts.map(function (q) { return q[0].toFixed(1) + ' ' + q[1].toFixed(1); }).join('L') + (close ? 'Z' : ''); }
+    el('path', { 'class': 'ground', d: d(ring(-T - 10), true) }, svg);
+    var plates = Lr.map(function (ly) {
+      var g = el('g', { 'class': 'r-' + (ly.role || 'op') }, svg);
+      return { g: g, fill: el('path', { 'class': 'fill' }, g), crease: el('path', { 'class': 'crease' }, g), sil: el('path', { 'class': 'sil' }, g), z: 0, v: 0, t: 0, last: null };
+    });
+    function draw(p, z) {
+      if (p.last !== null && Math.abs(p.last - z) < .01) return; p.last = z;
+      var a = ring(z), b = ring(z - T), h = d(hull(a.concat(b)), true);
+      p.fill.setAttribute('d', h); p.sil.setAttribute('d', h); p.crease.setAttribute('d', d(a, true));
+    }
+    var home = o.start === undefined ? n - 1 : o.start, sel = -2, raf = 0, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function target(k) { plates.forEach(function (p, i) { p.t = rest[i] + (k >= 0 && i > k ? open : 0); }); }
+    function light(k, say) { plates.forEach(function (p, i) { p.sil.classList.toggle('hi', i === k); }); if (ctl) ctl.innerHTML = '<span class="say">' + say + '</span>'; }
+    function tick() {
+      var moving = false;
+      plates.forEach(function (p) {
+        if (reduce) { p.z = p.t; p.v = 0; } else { for (var s = 0; s < 2; s++) { var f = -100 * (p.z - p.t) - 18 * p.v; p.v += f / 120; p.z += p.v / 120; } }
+        if (Math.abs(p.z - p.t) > .02 || Math.abs(p.v) > .02) moving = true; else { p.z = p.t; p.v = 0; }
+        draw(p, p.z);
+      });
+      raf = moving ? requestAnimationFrame(tick) : 0;
+    }
+    function wake() { if (!raf) raf = requestAnimationFrame(tick); }
+    function choose(k) { if (k === sel) return; sel = k; target(k); light(k, (k + 1) + ' / ' + n + ' · ' + Lr[k].name); wake(); }
+    function rest0() { sel = -2; target(-1); light(home, o.restSay || Lr[home].name); wake(); }
+    var mids = plates.map(function (_, i) { return P(0, 0, rest[i] - T / 2)[1]; });
+    svg.addEventListener('pointermove', function (e) {
+      var r = svg.getBoundingClientRect(), y = (e.clientY - r.top) / r.height * 320, best = 0, bd = 1e9;
+      mids.forEach(function (m, i) { var dd = Math.abs(m - y); if (dd < bd) { bd = dd; best = i; } });
+      choose(best);
+    });
+    svg.addEventListener('pointerleave', rest0);
+    svg.tabIndex = 0;
+    svg.addEventListener('keydown', function (e) { if (e.key === 'ArrowUp') choose(Math.min(n - 1, Math.max(sel, 0) + 1)); if (e.key === 'ArrowDown') choose(Math.max(0, (sel < 0 ? n : sel) - 1)); if (e.key === 'Escape') rest0(); });
+    target(-1); plates.forEach(function (p) { p.z = p.t; draw(p, p.z); }); light(home, o.restSay || Lr[home].name);
+    if (/[?&]at=iso(\d+)/.test(location.search)) choose(+RegExp.$1);
+    return { choose: choose, rest: rest0 };
+  }
+
+  // data plot in the same figure language. o.x / o.y: {min, max, log, ticks:[...], fmt(v)->TeX, label, hide}.
+  // Every series has an id; calling the same method with the same id redraws it in place, so a slider handler
+  // just recomputes and calls line()/dot()/text() again. o.pad: {l, r, t, b}. Returns {f, X, Y, line, dot, text, rect, vline, hline, remove}.
+  function plot(host, o) {
+    host = typeof host === 'string' ? document.querySelector(host) : host; host.innerHTML = '';
+    var f = new Fig(host, o.w || 1000, o.h || 420, o.label);
+    var m = Object.assign({ l: 76, r: 34, t: 30, b: 56 }, o.pad || {}), X0 = m.l, X1 = f.w - m.r, Y0 = f.h - m.b, Y1 = m.t;
+    function axis(a, p0, p1) {
+      var lg = !!a.log, lo = lg ? Math.log10(a.min) : a.min, hi = lg ? Math.log10(a.max) : a.max;
+      return function (v) { var t = ((lg ? Math.log10(Math.max(v, 1e-300)) : v) - lo) / (hi - lo); return p0 + t * (p1 - p0); };
+    }
+    var X = axis(o.x, X0, X1), Y = axis(o.y, Y0, Y1), gA = el('g', {}, f.gS), items = {}, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function ticks(a) {
+      if (a.ticks) return a.ticks;
+      var t = [];
+      if (a.log) { for (var k = Math.ceil(Math.log10(a.min) - 1e-9); k <= Math.floor(Math.log10(a.max) + 1e-9); k++) t.push(Math.pow(10, k)); var s = Math.ceil(t.length / 8); return t.filter(function (_, i) { return i % s === 0; }); }
+      var span = a.max - a.min, st = Math.pow(10, Math.floor(Math.log10(span / 5))); if (span / st > 10) st *= 2; if (span / st > 10) st *= 2.5;
+      for (var v = Math.ceil(a.min / st - 1e-9) * st; v <= a.max + 1e-9; v += st) t.push(+v.toPrecision(12));
+      return t;
+    }
+    function fmt(a, v) { return a.fmt ? a.fmt(v) : a.log ? '10^{' + Math.round(Math.log10(v)) + '}' : String(+v.toPrecision(6)); }
+    if (!o.x.hide) {
+      el('path', { 'class': 'axis', d: 'M' + X0 + ' ' + Y0 + 'H' + X1 }, gA);
+      ticks(o.x).forEach(function (v) { var x = X(v); el('path', { 'class': 'tick', d: 'M' + x + ' ' + Y0 + 'v5' }, gA); f.label(fmt(o.x, v), x, Y0 + 17, { size: 12, cls: 'note' }); });
+      if (o.x.label) f.label(o.x.label, X1, Y0 + 40, { anchor: 'end', size: 14 });
+    }
+    if (!o.y.hide) {
+      el('path', { 'class': 'axis', d: 'M' + X0 + ' ' + Y0 + 'V' + Y1 }, gA);
+      ticks(o.y).forEach(function (v) { var y = Y(v); el('path', { 'class': 'tick', d: 'M' + X0 + ' ' + y + 'h-5' }, gA); f.label(fmt(o.y, v), X0 - 9, y, { anchor: 'end', size: 12, cls: 'note' }); });
+      if (o.y.label) f.label(o.y.label, X0 - 9, Y1 - 16, { anchor: 'start', size: 14 });
+    }
+    function cls(base, q) { return base + (q.role ? ' r-' + q.role : '') + (q.cls ? ' ' + q.cls : ''); }
+    function inY(v) { var lo = Math.min(o.y.min, o.y.max), hi = Math.max(o.y.min, o.y.max), e = (hi - lo) * 1e-6; return isFinite(v) && v >= lo - e && v <= hi + e; }
+    function path(pts) { var s = '', pen = false; pts.forEach(function (p) { if (!inY(p[1])) { pen = false; return; } s += (pen ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1); pen = true; }); return s || 'M0 0'; }   // leaves the frame instead of clamping
+    var raf = 0, tw = [];
+    function step(now) {
+      tw = tw.filter(function (t) {
+        var k = Math.min(1, (now - t.t0) / 450), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+        t.n.setAttribute('d', path(t.a.map(function (p, i) { return [p[0] + (t.b[i][0] - p[0]) * e, p[1] + (t.b[i][1] - p[1]) * e]; })));
+        return k < 1;
+      });
+      raf = tw.length ? requestAnimationFrame(step) : 0;
+    }
+    var P = { f: f, X: X, Y: Y, box: { x0: X0, x1: X1, y0: Y1, y1: Y0 } };
+    P.line = function (id, pts, q) {
+      q = q || {}; var it = items[id];
+      if (!it) { it = items[id] = { n: el('path', { 'class': cls('curve', q) }, q.under ? f.gS : f.gW), pts: null }; }
+      else it.n.setAttribute('class', cls('curve', q));
+      if (q.tween && it.pts && it.pts.length === pts.length && !reduce) { tw = tw.filter(function (t) { return t.n !== it.n; }); tw.push({ n: it.n, a: it.pts, b: pts, t0: performance.now() }); if (!raf) raf = requestAnimationFrame(step); }
+      else it.n.setAttribute('d', path(pts));
+      it.pts = pts; return it.n;
+    };
+    P.dot = function (id, p, q) {
+      q = q || {}; var it = items[id] || (items[id] = { n: el('circle', {}, f.gB) });
+      it.n.setAttribute('class', cls('pt', q)); it.n.setAttribute('cx', X(p[0])); it.n.setAttribute('cy', Y(p[1])); it.n.setAttribute('r', q.r || 4.6);
+      return it.n;
+    };
+    P.text = function (id, txt, p, q) {
+      q = q || {}; if (items[id]) items[id].n.remove();
+      var n = f.label(txt, X(p[0]) + (q.dx || 0), Y(p[1]) + (q.dy || 0), { anchor: q.anchor || 'start', size: q.size || 13, cls: q.role ? 'r-' + q.role : q.cls || null });
+      items[id] = { n: n }; return n;
+    };
+    P.rect = function (id, a, b, q) {
+      q = q || {}; var it = items[id] || (items[id] = { n: el('rect', {}, f.gB) });
+      var x0 = Math.min(X(a[0]), X(b[0])), x1 = Math.max(X(a[0]), X(b[0])), y0 = Math.min(Y(a[1]), Y(b[1])), y1 = Math.max(Y(a[1]), Y(b[1]));
+      it.n.setAttribute('class', cls('bar', q)); it.n.setAttribute('x', x0); it.n.setAttribute('y', y0); it.n.setAttribute('width', Math.max(0, x1 - x0)); it.n.setAttribute('height', Math.max(0, y1 - y0)); it.n.setAttribute('rx', q.rx === undefined ? 2 : q.rx);
+      return it.n;
+    };
+    P.vline = function (id, x, q) { q = q || {}; var it = items[id] || (items[id] = { n: el('path', {}, f.gW) }); it.n.setAttribute('class', cls('ref', q)); it.n.setAttribute('d', 'M' + X(x) + ' ' + Y(q.y0 === undefined ? o.y.min : q.y0) + 'V' + Y(q.y1 === undefined ? o.y.max : q.y1)); return it.n; };
+    P.hline = function (id, y, q) { q = q || {}; var it = items[id] || (items[id] = { n: el('path', {}, f.gW) }); it.n.setAttribute('class', cls('ref', q)); it.n.setAttribute('d', 'M' + X(q.x0 === undefined ? o.x.min : q.x0) + ' ' + Y(y) + 'H' + X(q.x1 === undefined ? o.x.max : q.x1)); return it.n; };
+    P.remove = function (id) { if (items[id]) { items[id].n.remove(); delete items[id]; } };
+    P.has = function (id) { return !!items[id]; };
+    return P;
+  }
+
+  // token chips. set(lines): lines = [{label, toks:[string | {raw:'E4'}]}]. Leading spaces show as a faint middle dot.
+  function tokens(host, o) {
+    host = typeof host === 'string' ? document.querySelector(host) : host; host.innerHTML = '';
+    var root = document.createElement('div'); root.className = 'fk-toks'; root.setAttribute('role', 'img'); root.setAttribute('aria-label', (o && o.label) || 'tokens'); host.appendChild(root);
+    function set(lines) {
+      root.innerHTML = '';
+      lines.forEach(function (ln) {
+        if (ln.label) { var l = document.createElement('div'); l.className = 'lab'; l.textContent = ln.label; root.appendChild(l); }
+        var r = document.createElement('div'); r.className = 'row'; root.appendChild(r);
+        ln.toks.forEach(function (t, i) {
+          var s = document.createElement('span'); s.className = 'tk' + (i % 2 ? ' b' : '');
+          if (typeof t === 'object') { s.className += ' raw'; s.textContent = t.raw; }
+          else { var m = /^( +)/.exec(t); if (m) { var sp = document.createElement('span'); sp.className = 'sp'; sp.textContent = m[1].replace(/ /g, '·'); s.appendChild(sp); t = t.slice(m[1].length); } s.appendChild(document.createTextNode(t)); }
+          r.appendChild(s);
+        });
+      });
+    }
+    if (o && o.lines) set(o.lines);
+    return { root: root, set: set };
+  }
+
+  // pre-delivery check; logs to console; ?lint writes results into <pre id=fk-lint>
+  function lint() {
+    var out = [];
+    document.querySelectorAll('svg.fk').forEach(function (svg, si) {
+      var vb = svg.viewBox.baseVal, texts = [].slice.call(svg.querySelectorAll('text')).filter(function (t) { return t.textContent.trim(); });
+      if (vb.width > 1260) out.push('fig' + si + ': viewBox width ' + vb.width + ' > 1260');
+      function off(n) { var x = 0, y = 0; for (; n && n !== svg; n = n.parentNode) { var m = /translate\(([-\d.]+)[ ,]+([-\d.]+)\)/.exec(n.getAttribute && n.getAttribute('transform') || ''); if (m) { x += +m[1]; y += +m[2]; } } return [x, y]; }
+      var boxes = texts.map(function (t) { var b = t.getBBox(), o = off(t); return { t: t, x0: b.x + o[0], y0: b.y + o[1], x1: b.x + o[0] + b.width, y1: b.y + o[1] + b.height }; });
+      boxes.forEach(function (b) {
+        var fs = parseFloat(getComputedStyle(b.t).fontSize);
+        if (fs < 11) out.push('fig' + si + ': text too small ' + fs.toFixed(1) + ' "' + b.t.textContent + '"');
+        if (b.x0 < vb.x - 1 || b.y0 < vb.y - 1 || b.x1 > vb.x + vb.width + 1 || b.y1 > vb.y + vb.height + 1) out.push('fig' + si + ': out of bounds "' + b.t.textContent + '"');
+      });
+      for (var i = 0; i < boxes.length; i++) for (var j = i + 1; j < boxes.length; j++) {
+        var a = boxes[i], c = boxes[j];
+        if (a.x0 < c.x1 - 1 && c.x0 < a.x1 - 1 && a.y0 < c.y1 - 2 && c.y0 < a.y1 - 2) out.push('fig' + si + ': text overlap "' + a.t.textContent + '" × "' + c.t.textContent + '"');
+      }
+      svg.querySelectorAll('.blk').forEach(function (g) {
+        var r = g.querySelector('rect').getBBox();
+        g.querySelectorAll('text').forEach(function (t) { var b = t.getBBox(); if (b.x < r.x + 3 || b.x + b.width > r.x + r.width - 3) out.push('fig' + si + ': label overflows box "' + t.textContent + '"'); });
+        if (g.querySelectorAll('text').length > 3) out.push('fig' + si + ': more than 3 lines in a box');
+      });
+      svg.querySelectorAll('.wire[data-pts]').forEach(function (p) {
+        var po = off(p), pts = JSON.parse(p.getAttribute('data-pts')).map(function (q) { return [q[0] + po[0], q[1] + po[1]]; });
+        boxes.forEach(function (b) {
+          if (b.t.closest('.blk')) return;
+          for (var k = 1; k < pts.length; k++) {
+            var x0 = Math.min(pts[k - 1][0], pts[k][0]), x1 = Math.max(pts[k - 1][0], pts[k][0]), y0 = Math.min(pts[k - 1][1], pts[k][1]), y1 = Math.max(pts[k - 1][1], pts[k][1]);
+            if (x0 < b.x1 - 1 && b.x0 + 1 < x1 + 0.01 && y0 < b.y1 - 1 && b.y0 + 1 < y1 + 0.01) { out.push('fig' + si + ': text on a wire "' + b.t.textContent + '"'); break; }
+          }
+        });
+      });
+      if (svg.querySelector('[filter],filter')) out.push('fig' + si + ': uses filter (glow/shadow): remove');
+    });
+    out.forEach(function (m) { console.warn('[FK.lint] ' + m); });
+    if (!out.length) console.log('[FK.lint] ok');
+    if (/[?&]lint/.test(location.search)) { var pre = document.createElement('pre'); pre.id = 'fk-lint'; pre.textContent = out.length ? out.join('\n') : 'FK.lint ok'; document.body.prepend(pre); }
+    return out;
+  }
+
+  return { fig: function (h, w, hh, l) { var hs = typeof h === 'string' ? document.querySelector(h) : h; hs.innerHTML = ''; return new Fig(hs, w, hh, l); }, heat: heat, iso: iso, plot: plot, tokens: tokens, S: S, W: W, lint: lint, rich: rich };
+})();
+/* ===== FIGKIT JS END ===== */
+</script>
+<script>
+window.BPE = {"merges":[[228,184],[239,188],[257,140],[154,132],[231,259],[227,128],[261,130],[256,128],[230,152],[229,143],[230,156],[229,164],[264,175],[229,136],[230,149],[228,187],[256,170],[229,144],[232,191],[231,187],[228,186],[270,176],[230,150],[233,135],[232,174],[229,176],[229,156],[229,135],[229,174],[230,141],[232,175],[161,229],[230,168],[282,168],[228,185],[230,175],[158,139],[288,287],[229,138],[293,292],[230,138],[231,148],[266,137],[230,157],[32,49],[257,154],[229,133],[285,174],[278,135],[229,188],[261,129],[229,141],[256,138],[274,153],[233,162],[280,173],[229,173],[269,176],[146,140],[229,314],[229,155],[230,151],[297,168],[101,110],[32,51],[229,186],[263,272],[229,190],[276,134],[283,186],[131,189],[291,143],[229,185],[229,134],[233,161],[32,50],[256,141],[231,172],[231,142],[231,174],[232,161],[228,189],[230,160],[231,186],[32,260],[230,136],[335,151],[230,142],[275,131],[311,344],[32,116],[333,172],[111,107],[267,167],[230,173],[257,155],[273,142],[348,319],[230,140],[269,134],[256,173],[281,143],[317,182],[346,353],[165,229],[108,97],[229,175],[279,140],[228,188],[230,137],[266,128],[229,165],[230,148],[256,139],[232,167],[330,181],[232,135],[145,138],[229,129],[362,185],[277,303],[166,129],[233,128],[296,360],[299,165],[379,373],[232,377],[230,179],[229,183],[273,140],[279,141],[230,128],[233,151],[267,154],[231,173],[257,136],[257,137],[265,170],[341,144],[230,172],[231,155],[261,144],[261,145],[262,397],[229,142],[321,166],[230,155],[279,143],[291,148],[229,128],[296,138],[109,97],[310,132],[32,371],[232,326],[229,137],[32,52],[76,361],[229,140],[229,184],[281,177],[294,155],[350,165],[413,407],[265,130],[312,166],[395,161],[177,130],[354,137],[271,165],[101,101],[233,153],[230,181],[256,164],[298,303],[304,356],[431,430],[231,167],[420,277],[232,128],[339,191],[233,326],[256,137],[283,160],[233,157],[284,131],[338,183],[374,154],[231,156],[232,176],[274,135],[284,154],[411,141],[105,110],[334,176],[414,150],[290,139],[334,135],[230,139],[233,149],[232,180],[232,183],[266,172],[455,191],[229,189],[228,190],[229,423],[231,189],[230,159],[232,182],[271,142],[232,190],[290,160],[299,161],[329,153],[307,161],[383,149],[421,468],[284,158],[336,168],[343,168],[390,148],[32,56],[273,136],[312,151],[444,139],[32,381],[229,157],[230,158],[230,178],[232,138],[265,175],[323,151],[367,189],[32,272],[233,170],[286,180],[364,154],[402,180],[388,180],[491,140],[48,50],[130,185],[231,498],[310,152],[316,190],[328,180],[232,181],[275,147],[316,158],[372,170],[440,162],[368,190],[230,174],[267,177],[372,179],[405,188],[48,48],[230,161],[305,128],[265,152],[271,163],[336,140],[32,54],[278,185],[485,161],[231,188],[305,160],[309,272],[328,182],[428,139],[433,141],[150,294],[230,132],[233,152],[286,141],[445,131],[153,168],[162,171],[232,534],[233,154],[256,135],[256,186],[290,136],[305,143],[32,53],[276,186],[280,161],[329,141],[435,140],[509,181],[229,533],[285,159],[368,185],[400,187],[529,143],[32,48],[32,502],[323,136],[327,272],[486,130],[548,510],[32,268],[32,511],[233,155],[294,160],[338,135],[233,130],[278,173],[482,347],[68,426],[271,172],[281,145],[521,298],[566,112],[171,152],[231,177],[233,571],[267,132],[275,153],[276,142],[342,417],[367,528],[484,156],[570,83],[578,177],[131,168],[233,582],[267,141],[267,150],[339,166],[384,174],[426,107],[563,163],[572,187],[580,588],[231,159],[233,129],[265,145],[328,179],[357,295],[365,128],[383,168],[464,165],[32,71],[270,180],[427,141],[452,352],[465,138],[467,147],[133,141],[228,191],[233,606],[290,159],[307,149],[350,163],[505,477],[32,347],[144,134],[231,160],[231,168],[231,614],[400,159],[402,178],[560,134],[99,104],[179,447],[230,184],[230,187],[271,183],[285,162],[294,168],[302,168],[310,145],[321,143],[343,137],[343,165],[364,152],[396,180],[408,345],[473,453],[474,496],[619,436],[32,75],[271,150],[278,176],[280,186],[286,173],[302,136],[325,450],[388,174],[463,174],[487,425],[97,108],[166,130],[229,191],[231,137],[271,189],[274,152],[302,165],[387,167],[415,184],[233,148],[260,268],[264,142],[264,190],[273,132],[275,132],[276,155],[405,141],[461,139],[503,183],[231,149],[305,186],[337,141],[366,352],[370,132],[370,134],[378,137],[32,55],[263,422],[276,139],[300,50],[309,263],[325,380],[349,357],[374,143],[390,137],[32,537],[286,132],[307,129],[463,145],[522,169],[605,325],[32,315],[132,182],[231,161],[231,691],[269,151],[275,143],[308,369],[365,185],[640,567],[646,500],[32,313],[111,110],[128,539],[179,176],[194,183],[265,150],[271,702],[300,48],[316,155],[354,135],[378,154],[392,704],[451,473],[483,135],[525,518],[551,417],[598,715],[696,304],[10,10],[67,104],[77,111],[101,114],[229,703],[256,187],[300,54],[329,622],[330,185],[358,495],[385,442],[396,184],[615,129],[70,76],[79,80],[108,361],[115,116],[128,230],[163,128],[230,736],[260,295],[273,145],[283,143],[332,268],[385,263],[387,187],[514,163],[523,471],[692,174],[731,732],[32,77],[32,83],[32,258],[101,116],[229,162],[229,650],[230,143],[271,187],[284,140],[286,129],[392,258],[404,666],[583,355],[669,712],[737,599],[48,53],[76,720],[79,764],[87,101],[111,114],[138,182],[230,191],[231,768],[256,142],[274,155],[288,161],[299,131],[312,152],[331,497],[349,295],[363,260],[408,342],[416,268],[456,168],[457,175],[504,579],[735,180],[32,57],[37,258],[105,733],[230,182],[231,153],[232,137],[271,182],[286,187],[302,182],[307,138],[312,144],[337,156],[384,177],[449,621],[506,797],[517,625],[550,386],[595,713],[719,798],[769,784],[774,386],[781,403],[803,787],[804,187],[32,649],[32,751],[50,497],[80,84],[229,147],[229,159],[232,189],[256,147],[295,260],[307,160],[309,664],[337,134],[339,167],[341,150],[370,129],[415,167],[480,556],[483,151],[592,169],[762,499],[97,110],[128,231],[232,136],[233,146],[233,156],[269,135],[269,164],[269,171],[283,134],[368,182],[387,142],[449,101],[459,401],[634,632],[651,171],[754,144],[766,98],[790,178],[32,683],[162,175],[229,177],[230,176],[230,848],[260,263],[265,141],[297,159],[316,160],[327,263],[337,147],[355,531],[384,178],[386,584],[389,568],[461,157],[465,133],[630,694],[851,401],[858,547],[70,840],[80,79],[231,170],[275,173],[284,182],[297,177],[297,187],[336,165],[337,142],[337,153],[352,345],[364,176],[367,151],[435,133],[488,313],[530,181],[593,141],[597,298],[597,425],[607,161],[623,133],[668,153],[789,190],[827,882],[839,539],[867,845],[32,84],[32,277],[49,57],[108,111],[133,167],[167,139],[168,128],[176,740],[229,898],[231,897],[232,899],[260,376],[266,136],[267,180],[269,153],[270,133],[280,169],[284,189],[300,53],[302,179],[304,458],[321,148],[323,128],[336,900],[347,263],[370,137],[387,129],[428,129],[433,146],[449,105],[460,162],[464,147],[503,176],[517,730],[585,476],[624,145],[643,903],[670,647],[687,371],[688,508],[728,260],[752,158],[847,542],[859,695],[49,54],[81,119],[97,114],[109,105],[128,382],[150,722],[163,323],[230,131],[231,139],[231,157],[231,180],[263,469],[266,159],[270,136],[274,145],[276,140],[281,942],[286,157],[296,189],[302,183],[318,260],[321,149],[323,139],[410,417],[445,183],[457,145],[460,146],[476,564],[496,757],[514,136],[602,313],[616,139],[673,629],[678,56],[685,526],[709,277],[755,294],[833,941],[938,319],[32,65],[32,289],[32,422],[32,807],[32,905],[49,50],[101,109],[116,105],[230,423],[231,171],[233,166],[265,166],[267,169],[268,322],[286,149],[290,142],[302,172],[308,260],[331,48],[331,53],[338,188],[369,260],[385,358],[396,174],[408,526],[439,991],[486,177],[593,147],[652,136],[679,418],[814,186],[862,303],[869,129],[945,172],[973,161],[32,358],[131,143],[131,173],[229,1012],[230,153],[230,177],[231,169],[231,1013],[260,589],[263,451],[274,156],[277,480],[278,153],[282,176],[325,260],[357,358],[366,633],[415,131],[415,166],[427,133],[429,272],[438,272],[439,272],[458,232],[460,177],[484,132],[504,642],[536,143],[536,156],[543,342],[658,153],[908,1039],[32,72],[32,419],[50,53],[71,812],[97,112],[105,116],[129,171],[164,186],[186,171],[231,179],[231,1050],[256,148],[311,322],[316,186],[329,133],[330,186],[332,385],[378,144],[378,830],[400,139],[436,656],[441,567],[454,159],[472,268],[474,1030],[476,617],[477,966],[516,394],[531,475],[607,157],[608,404],[642,304],[660,661],[667,380],[673,918],[697,681],[961,958],[982,922],[1034,1051],[1061,1049],[32,66],[32,295],[32,318],[32,434],[37,262],[51,50],[97,109],[101,82],[105,940],[144,189],[181,140],[230,129],[230,133],[231,166],[231,178],[232,1092],[265,179],[280,178],[286,165],[304,744],[305,166],[347,438],[352,507],[361,110],[384,165],[385,322],[393,268],[412,763],[454,191],[457,168],[458,304],[460,147],[467,131],[508,289],[520,540],[596,308],[633,451],[672,773],[799,260],[800,268],[816,871],[843,902],[850,180],[876,1103],[963,1020],[1047,1106],[1052,187],[1056,447],[1065,479],[32,308],[32,665],[32,825],[49,513],[50,52],[75,1091],[111,112],[169,153],[174,532],[229,1093],[230,1139],[231,190],[263,442],[263,794],[269,160],[276,191],[277,421],[290,137],[300,51],[302,173],[304,480],[307,131],[313,260],[317,160],[320,50],[327,471],[365,147],[366,349],[386,641],[388,168],[393,298],[404,753],[408,1018],[411,169],[429,527],[452,448],[452,495],[456,159],[456,185],[479,394],[492,660],[504,1036],[515,901],[522,150],[532,401],[545,268],[549,470],[562,837],[581,295],[601,272],[610,1009],[658,174],[661,775],[682,489],[813,170],[835,564],[863,446],[928,826],[1058,630],[1095,162],[32,80],[80,85],[102,102],[145,152],[230,183],[232,139],[256,129],[260,612],[263,523],[263,653],[263,667],[273,175],[279,135],[280,176],[281,190],[289,1118],[290,152],[300,52],[309,590],[327,921],[364,188],[365,141],[372,180],[374,156],[380,506],[384,166],[393,289],[404,1115],[412,48],[427,144],[440,160],[441,260],[443,260],[446,624],[471,358],[520,472],[536,148],[574,617],[592,165],[594,450],[608,647],[611,304],[657,823],[672,907],[753,579],[874,1198],[1008,693],[1040,403],[1146,631],[1225,164],[32,82],[32,262],[32,466],[32,591],[32,896],[50,48],[81,75],[86,76],[103,1048],[108,117],[151,831],[159,179],[161,924],[162,530],[230,186],[231,151],[233,1253],[265,183],[266,186],[267,159],[275,134],[275,159],[276,148],[276,164],[280,164],[280,190],[286,134],[294,191],[295,289],[298,322],[317,1252],[320,48],[334,175],[341,183],[354,129],[355,277],[355,590],[380,260],[395,287],[403,821],[422,277],[435,131],[437,268],[446,260],[454,150],[459,717],[494,641],[495,1228],[520,739],[526,990],[530,182],[626,394],[643,1023],[722,512],[767,109],[788,168],[822,880],[849,128],[893,747],[910,401],[920,1125],[986,136],[992,515],[1016,1254],[1096,187],[1141,655],[1204,442],[1246,1250],[1272,176],[1302,436],[32,68],[32,418],[32,747],[70,85],[101,112],[114,117],[116,1046],[135,770],[170,1170],[175,135],[230,650],[231,136],[231,1321],[232,163],[263,518],[263,556],[263,663],[263,883],[265,138],[265,151],[265,943],[267,170],[275,136],[275,180],[277,1281],[279,138],[286,162],[296,149],[302,177],[307,135],[309,469],[316,1255],[318,1275],[327,824],[341,170],[347,952],[350,164],[354,130],[365,139],[366,357],[366,1334],[370,163],[386,342],[386,1203],[428,1320],[434,403],[443,472],[448,1303],[462,260],[464,144],[479,543],[485,191],[487,410],[575,1025],[599,1338],[616,622],[628,1299],[680,260],[710,886],[723,382],[756,601],[788,136],[844,1053],[887,610],[932,959],[934,459],[944,133],[946,128],[956,857],[996,540],[1003,500],[1097,190],[1098,289],[1196,183],[1197,177],[1257,1319],[1322,453],[1332,132],[1343,159],[32,70],[32,393],[32,745],[32,923],[32,988],[32,1026],[32,1074],[46,391],[49,52],[49,53],[52,763],[71,1080],[73,110],[99,101],[136,512],[145,946],[178,924],[186,401],[191,187],[231,1409],[256,154],[260,577],[263,527],[265,136],[268,1113],[270,163],[271,360],[274,158],[281,1408],[284,185],[294,158],[295,681],[300,55],[300,513],[308,507],[318,659],[324,322],[328,178],[333,166],[337,149],[343,146],[345,260],[355,1028],[356,564],[362,188],[369,507],[369,602],[375,277],[375,914],[376,260],[392,262],[396,1406],[416,410],[425,308],[425,1330],[429,469],[437,382],[439,686],[440,158],[444,159],[457,157],[457,179],[461,191],[465,179],[477,375],[479,525],[489,260],[494,349],[494,489],[514,182],[530,1405],[549,516],[553,260],[555,434],[560,182],[562,598],[585,1349],[596,260],[600,66],[600,812],[612,260],[618,304],[618,855],[623,1407],[628,583],[633,1269],[652,185],[657,277],[734,1316],[734,1317],[746,453],[770,919],[777,308],[782,436],[791,677],[816,1161],[846,268],[878,342],[887,230],[888,369],[917,1004],[929,295],[943,1140],[1119,547],[1136,48],[1138,104],[1230,1268],[1234,260],[1256,144],[1278,547],[1314,115],[1325,133],[1339,1035],[1359,462],[1403,1480],[1442,1493],[1505,99],[32,86],[32,363],[32,406],[32,1127],[32,1147],[49,55],[51,48],[51,56],[55,48],[65,73],[67,80],[83,68],[83,99],[86,71],[97,101],[100,1089],[105,115],[105,829],[111,747],[115,115],[117,701],[132,229],[140,131],[148,1017],[158,141],[165,154],[170,154],[188,1251],[195,1535],[229,150],[232,1530],[232,1532],[233,187],[265,171],[273,171],[274,144],[275,167],[284,156],[284,161],[289,345],[299,287],[309,363],[309,442],[313,324],[318,324],[322,268],[327,418],[327,745],[331,51],[337,143],[349,586],[356,949],[381,260],[382,984],[390,155],[405,153],[427,164],[443,324],[445,1529],[454,134],[454,528],[475,450],[481,313],[483,143],[487,965],[494,389],[525,1054],[536,190],[538,706],[540,260],[543,277],[545,1054],[561,308],[581,260],[584,450],[589,272],[605,655],[615,1531],[620,1143],[623,184],[635,260],[639,1128],[645,260],[649,1090],[668,165],[674,356],[685,1546],[710,446],[714,1232],[743,403],[749,1521],[755,1430],[767,1525],[773,919],[793,356],[813,141],[830,150],[831,141],[832,177],[838,1206],[850,148],[854,394],[914,1101],[923,770],[944,179],[947,160],[999,562],[1017,186],[1035,1603],[1063,967],[1107,956],[1175,730],[1286,313],[1292,546],[1353,1337],[1368,801],[1373,1539],[1453,1545],[1489,1533],[1507,1318],[1524,1526],[1559,345],[1566,1534],[1568,168],[1585,182],[1586,164],[1591,76],[32,102],[32,110],[32,115],[32,119],[32,375],[32,416],[32,462],[32,808],[32,892],[32,975],[32,1226],[49,51],[53,53],[54,49],[55,49],[56,513],[71,1193],[75,1128],[76,85],[78,68],[79,112],[80,69],[84,1536],[90,1090],[100,101],[105,118],[108,101],[112,111],[117,114],[146,184],[185,608],[188,143],[230,1195],[232,153],[232,1664],[260,930],[263,574],[263,1280],[265,165],[298,438],[299,191],[300,56],[309,268],[309,527],[315,376],[317,169],[319,1517],[325,506],[327,422],[327,434],[328,133],[331,56],[332,410],[338,184],[339,162],[355,836],[356,495],[365,190],[369,501],[369,1587],[378,148],[378,160],[380,492],[380,604],[385,418],[387,157],[389,1601],[407,110],[414,1665],[429,418],[433,187],[439,889],[442,458],[449,103],[450,289],[456,181],[470,260],[478,48],[492,472],[500,999],[510,950],[515,658],[516,451],[519,54],[540,795],[544,318],[545,741],[554,389],[573,806],[576,268],[587,836],[587,1451],[594,1028],[600,1080],[604,1698],[617,872],[621,1522],[625,512],[635,363],[652,135],[671,263],[689,462],[693,352],[708,272],[742,653],[746,447],[748,1315],[752,131],[793,640],[834,355],[837,1481],[838,620],[870,470],[873,507],[955,705],[983,701],[985,175],[986,143],[987,322],[1045,48],[1064,260]],"curve":[94122,92056,90220,88970,87754,86538,85461,84795,84206,83657,83155,82660,82169,81689,81210,80733,80277,79821,79401,79002,78610,78219,77831,77468,77107,76747,76430,76115,75807,75500,75197,74895,74595,74298,74008,73733,73461,73190,72920,72654,72388,72136,71891,71648,71417,71190,70964,70744,70525,70311,70099,69888,69678,69469,69260,69053,68847,68648,68454,68262,68071,67882,67698,67515,67333,67152,66974,66797,66622,66449,66276,66104,65932,65761,65591,65421,65253,65089,64930,64772,64617,64462,64308,64154,64000,63848,63697,63547,63398,63249,63100,62952,62804,62657,62510,62364,62218,62072,61926,61781,61637,61494,61351,61208,61065,60923,60788,60653,60520,60389,60263,60137,60012,59887,59762,59638,59514,59391,59269,59147,59026,58908,58793,58678,58563,58448,58333,58220,58109,57999,57889,57779,57670,57561,57452,57344,57239,57134,57029,56927,56826,56725,56625,56525,56425,56326,56227,56129,56031,55933,55836,55739,55643,55547,55453,55360,55268,55178,55088,54998,54908,54818,54728,54638,54548,54459,54370,54281,54193,54105,54018,53932,53847,53763,53679,53595,53511,53427,53345,53263,53182,53101,53022,52943,52864,52786,52708,52630,52552,52475,52398,52321,52245,52169,52094,52019,51945,51872,51799,51727,51655,51585,51515,51445,51375,51306,51238,51170,51102,51035,50968,50901,50835,50769,50703,50637,50572,50507,50442,50378,50314,50250,50186,50123,50060,49997,49934,49872,49810,49748,49686,49624,49562,49500,49438,49377,49316,49255,49194,49133,49073,49013,48954,48895,48836,48777,48718,48660,48603,48546,48489,48432,48375,48319,48264,48209,48154,48099,48048,47994,47940,47887,47834,47781,47729,47677,47625,47574,47523,47472,47421,47370,47319,47269,47219,47169,47119,47069,47020,46971,46922,46873,46824,46775,46726,46677,46629,46581,46533,46485,46437,46389,46342,46295,46248,46201,46154,46108,46062,46016,45970,45924,45878,45833,45788,45743,45698,45653,45609,45565,45521,45478,45435,45392,45349,45306,45264,45222,45180,45138,45096,45054,45012,44970,44928,44886,44844,44803,44762,44721,44680,44639,44598,44557,44516,44475,44434,44394,44354,44314,44274,44234,44194,44154,44114,44075,44036,43997,43958,43919,43880,43842,43804,43766,43728,43690,43652,43614,43577,43540,43503,43466,43429,43392,43355,43318,43282,43246,43210,43174,43138,43102,43066,43030,42994,42958,42922,42886,42850,42814,42778,42742,42706,42670,42635,42600,42565,42530,42495,42460,42425,42390,42355,42320,42286,42252,42218,42184,42150,42116,42082,42048,42014,41981,41948,41915,41882,41849,41816,41783,41750,41717,41684,41652,41620,41588,41556,41524,41492,41460,41429,41398,41367,41336,41305,41274,41243,41212,41181,41151,41121,41091,41061,41031,41001,40972,40943,40914,40885,40856,40827,40798,40769,40740,40711,40683,40655,40627,40599,40571,40543,40515,40487,40459,40431,40403,40375,40347,40319,40291,40263,40235,40207,40183,40156,40129,40102,40075,40048,40021,39994,39967,39940,39913,39886,39859,39833,39807,39781,39755,39729,39703,39677,39651,39625,39599,39573,39547,39521,39495,39469,39443,39417,39392,39367,39342,39317,39292,39267,39242,39217,39192,39167,39142,39117,39092,39067,39042,39018,38994,38970,38946,38922,38898,38874,38850,38826,38802,38778,38754,38730,38706,38682,38658,38634,38610,38586,38562,38538,38514,38491,38468,38445,38422,38399,38376,38353,38330,38307,38284,38261,38238,38215,38192,38169,38146,38123,38100,38077,38054,38031,38008,37985,37962,37940,37918,37896,37874,37852,37830,37808,37786,37764,37742,37720,37698,37676,37654,37632,37610,37588,37566,37544,37522,37501,37480,37459,37438,37417,37396,37375,37354,37333,37312,37291,37270,37249,37228,37207,37186,37165,37144,37124,37104,37084,37064,37044,37024,37004,36984,36964,36944,36924,36904,36884,36864,36844,36824,36804,36784,36764,36744,36725,36706,36687,36668,36649,36630,36611,36592,36573,36554,36535,36516,36497,36478,36459,36440,36421,36402,36383,36364,36345,36326,36307,36288,36269,36250,36232,36214,36196,36178,36160,36142,36124,36106,36088,36070,36052,36034,36016,35998,35980,35962,35944,35926,35908,35890,35872,35854,35836,35818,35800,35782,35764,35746,35728,35710,35692,35674,35656,35638,35620,35602,35584,35566,35548,35530,35512,35494,35476,35458,35441,35424,35407,35390,35373,35356,35339,35322,35305,35288,35271,35254,35237,35220,35203,35186,35169,35152,35135,35118,35101,35084,35067,35050,35033,35016,34999,34982,34965,34948,34931,34914,34897,34880,34863,34846,34829,34812,34795,34779,34763,34747,34731,34715,34699,34683,34667,34651,34635,34619,34603,34587,34571,34555,34539,34523,34507,34491,34475,34459,34443,34427,34411,34395,34379,34363,34347,34331,34315,34299,34283,34267,34251,34235,34220,34205,34190,34175,34160,34145,34130,34115,34100,34085,34070,34055,34040,34025,34010,33995,33980,33965,33950,33935,33920,33905,33890,33875,33860,33845,33830,33815,33800,33785,33770,33755,33741,33727,33713,33699,33685,33671,33657,33643,33629,33615,33601,33587,33573,33559,33545,33531,33517,33503,33489,33475,33461,33447,33433,33419,33405,33391,33377,33363,33349,33335,33321,33307,33293,33279,33265,33251,33237,33223,33209,33195,33182,33169,33156,33143,33130,33117,33104,33091,33078,33065,33052,33039,33026,33013,33000,32987,32974,32961,32948,32935,32922,32909,32896,32883,32870,32857,32844,32831,32818,32805,32792,32779,32766,32753,32740,32727,32714,32701,32688,32675,32662,32649,32636,32623,32610,32597,32584,32571,32558,32546,32534,32522,32510,32498,32486,32474,32462,32450,32438,32426,32414,32402,32390,32378,32366,32354,32342,32330,32318,32306,32294,32282,32270,32258,32246,32234,32222,32210,32198,32186,32174,32162,32150,32138,32126,32114,32102,32090,32078,32066,32054,32042,32030,32018,32006,31994,31982,31970,31958,31946,31934,31922,31910,31898,31886,31874,31862,31850,31838,31827,31816,31805,31794,31783,31772,31761,31750,31739,31728,31717,31706,31695,31684,31673,31662,31651,31640,31629,31618,31607,31596,31585,31574,31563,31552,31541,31530,31519,31508,31497,31486,31475,31464,31453,31442,31431,31420,31409,31398,31387,31376,31365,31354,31343,31332,31321,31310,31299,31288,31278,31268,31258,31248,31238,31228,31218,31208,31198,31188,31178,31168,31158,31148,31138,31128,31118,31108,31098,31088,31078,31068,31058,31048,31038,31028,31018,31008,30998,30988,30978,30968,30958,30948,30938,30928,30918,30908,30898,30888,30878,30868,30858,30848,30838,30828,30818,30808,30798,30788,30778,30768,30758,30748,30738,30728,30718,30708,30698,30688,30678,30668,30658,30648,30638,30628,30618,30608,30598,30588,30579,30570,30561,30552,30543,30534,30525,30516,30507,30498,30489,30480,30471,30462,30453,30444,30435,30426,30417,30408,30399,30390,30381,30372,30363,30354,30345,30336,30327,30318,30309,30300,30291,30282,30273,30264,30255,30246,30237,30228,30219,30210,30201,30192,30183,30174,30165,30156,30147,30138,30129,30120,30111,30102,30093,30084,30075,30066,30057,30048,30039,30030,30021,30012,30003,29994,29985,29976,29967,29958,29949,29940,29931,29922,29913,29904,29895,29886,29877,29869,29861,29853,29845,29837,29829,29821,29813,29805,29797,29789,29781,29773,29765,29757,29749,29741,29733,29725,29717,29709,29701,29693,29685,29677,29669,29661,29653,29645,29637,29629,29621,29613,29605,29597,29589,29581,29573,29565,29557,29549,29541,29533,29525,29517,29509,29501,29493,29485,29477,29469,29461,29453,29445,29437,29429,29421,29413,29405,29397,29389,29381,29373,29365,29357,29349,29341,29333,29325,29317,29309,29301,29293,29285,29277,29269,29261,29253,29245,29237,29229,29221,29213,29205,29197,29189,29181,29173,29165,29157,29149,29141,29133,29125,29117,29109,29101,29093,29085,29077,29069,29061,29053,29045,29037,29029,29021,29013,29005,28997,28989,28981,28973,28965,28957,28949,28941,28934,28927,28920,28913,28906,28899,28892,28885,28878,28871,28864,28857,28850,28843,28836,28829,28822,28815,28808,28801,28794,28787,28780,28773,28766,28759,28752,28745,28738,28731,28724,28717,28710,28703,28696,28689,28682,28675,28668,28661,28654,28647,28640,28633,28626,28619,28612,28605,28598,28591,28584,28577,28570,28563,28556,28549,28542,28535,28528,28521,28514,28507,28500,28493,28486,28479,28472,28465,28458,28451,28444,28437,28430,28423,28416,28409,28402,28395,28388,28381,28374,28367,28360,28353,28346,28339,28332,28325,28318,28311,28304,28297,28290,28283,28276,28269,28262,28255,28248,28241,28234,28227,28220,28213,28206,28199,28192,28185,28178,28171,28164,28157,28150,28143,28136,28129,28122,28115,28108,28101,28094,28087,28080,28073,28066,28059,28052,28046,28040,28034,28028,28022,28016,28010,28004,27998,27992,27986,27980,27974,27968,27962,27956,27950,27944,27938,27932,27926,27920,27914,27908,27902,27896,27890,27884,27878,27872,27866,27860,27854,27848,27842,27836,27830,27824,27818,27812,27806,27800,27794,27788,27782,27776,27770,27764,27758,27752,27746,27740,27734,27728,27722,27716,27710,27704,27698,27692,27686,27680,27674,27668,27662,27656,27650,27644,27638,27632,27626,27620,27614,27608,27602,27596,27590,27584,27578,27572,27566,27560,27554,27548,27542,27536,27530,27524,27518,27512,27506,27500,27494,27488,27482,27476,27470,27464,27458,27452,27446,27440,27434,27428,27422,27416,27410,27404,27398,27392,27386,27380,27374,27368,27362,27356,27350,27344,27338,27332,27326],"chars":39230};
+XRAY.ready(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  function sci(x, d) {                      // 3.8×10²⁵ for the HTML read-outs
+    var e = Math.floor(Math.log10(x)), m = x / Math.pow(10, e);
+    if (m >= 9.995) { m /= 10; e++; }
+    return m.toFixed(d === undefined ? 1 : d) + '×10<sup>' + e + '</sup>';
+  }
+  function si(x) {                          // 405B / 16.5T / 77M
+    var u = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+    for (var i = 0; i < u.length; i++) if (x >= u[i][0]) { var v = x / u[i][0]; return (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2)) + u[i][1]; }
+    return x.toFixed(0);
+  }
+  function slider(ctl, sym, o, on) {
+    ctl.innerHTML = '<span>' + sym + '</span><input type="range" min="' + o.min + '" max="' + o.max + '" step="' + o.step + '" value="' + o.value + '" aria-label="' + o.aria + '"><span class="say"></span>';
+    var s = ctl.querySelector('input'), say = ctl.querySelector('.say');
+    function go() { say.innerHTML = on(+s.value); }
+    s.addEventListener('input', go); go();
+    return { input: s, say: say, go: go };
+  }
+  function stepper(ctl, n, on) {
+    ctl.innerHTML = '<button aria-label="上一步">‹</button><span class="n"></span><button aria-label="下一步">›</button><span class="say"></span>';
+    var k = 0, b = ctl.querySelectorAll('button');
+    function show() { ctl.querySelector('.n').textContent = (k + 1) + ' / ' + n; ctl.querySelector('.say').innerHTML = on(k); }
+    b[0].onclick = function () { k = Math.max(0, k - 1); show(); };
+    b[1].onclick = function () { k = Math.min(n - 1, k + 1); show(); };
+    ctl.tabIndex = 0;
+    ctl.addEventListener('keydown', function (e) { if (e.key === 'ArrowLeft') b[0].onclick(); if (e.key === 'ArrowRight') b[1].onclick(); });
+    var m = new RegExp('[?&]at=' + ctl.id + '(\\d+)').exec(location.search); if (m) k = Math.min(n - 1, +m[1]);
+    show();
+    return { set: function (i) { k = i; show(); } };
+  }
+  function logspace(a, b, n) { var r = []; for (var i = 0; i < n; i++) r.push(Math.pow(10, a + (b - a) * i / (n - 1))); return r; }
+
+  /* ---------- 图 1：流水线全景 ---------- */
+  (function () {
+    var f = FK.fig('#figMap', 1000, 290, '训练流水线的十二个决定');
+    var y1 = 70, y2 = 210;
+    f.row(y1, 96, [
+      { id: 's0', box: 'Budget', role: 'op', w: 'l', param: '6ND' },
+      { id: 's1', box: 'Data', role: 'in', w: 'l', param: '15T', gap: 22 },
+      { id: 's2', box: 'Tokenizer', role: 'in', w: 'l', param: '128K', gap: 22 },
+      { id: 's3', box: 'Model', role: 'op', w: 'l', param: 'N', gap: 22 },
+      { id: 's4', box: 'Parallelism', role: 'op', w: 'l', param: 'TP\\cdot PP\\cdot DP', gap: 22 },
+      { id: 's5', box: 'LR\nschedule', role: 'op', w: 'l', param: '\\eta(t)', gap: 22 },
+      { id: 's6', box: 'Run', role: 'loss', w: 'l', param: '54\\ days', gap: 22 }
+    ]);
+    f.row(y2, 96, [
+      { id: 's7', box: 'Anneal\nlong ctx', role: 'alt', w: 'l', param: '8K\\to 128K' },
+      { id: 's8', box: 'Vision\naudio', role: 'in', w: 'l', param: '66\\text{–}258/frame', gap: 22 },
+      { id: 's9', box: 'SFT', role: 'out', w: 'l', param: 'K=10\\text{–}30', gap: 22 },
+      { id: 's10', box: 'RL', role: 'out', w: 'l', param: '>10\\%\\ of\\ PT', gap: 22 },
+      { id: 's11', box: 'Eval', role: 'out', w: 'l', param: 'NLL\\to acc', gap: 22 }
+    ]);
+    var r = f.p('s6.r'), a = f.p('s7.t');
+    f.wire([r, [r[0] + 26, r[1]], [r[0] + 26, 140], [a[0], 140], a]);
+    f.note('\\text{pre-training}', 96, 20, 'start');
+    f.note('\\text{after pre-training}', 158, 162, 'start');
+    var D = [
+      ['算力预算', '3.8×10²⁵ FLOPs，最多 16K 张 H100，MFU 38% 到 43%', '278.8 万 H800 卡时，按每卡时 2 美元是 557.6 万美元', '按 6ND 估算约 1.8×10²³ FLOPs', '在目标集群上用目标形状测出 MFU', '#budget'],
+      ['数据', '约 15T 多语言 token；通用 50%、数学推理 25%、代码 17%、多语言 8%', '14.8T token，提高数学和代码的比例', '预训练 3.90T，中期训练 50B 做三遍', 'FineWeb 用 1.71B 模型做每个处理环节的消融；Llama 3 用训到一半的 8B 退火给新数据估价', '#data'],
+      ['分词器', '128K：100K 来自 tiktoken，另加 28K 非英语 token；英文 3.94 字符每 token', '字节级 BPE，128K 词表', '沿用 cl100k 的词表和预切分', 'OLMo 2 用 1B 模型训 100B token 对比新旧分词器', '#tok'],
+      ['模型结构', '稠密，126 层，宽 16384，8 个 KV 头的 GQA，RoPE 基频 5×10⁵', 'MoE，总参数 671B、激活 37B；1 个共享专家加 256 个路由专家取 8 个；MLA', '32 层，宽 4096；QK 归一化，子层输出端 RMSNorm', 'Wortsman 等人在小模型上用高学习率复现不稳定性，筛选 QK 归一化和 z-loss', '#arch'],
+      ['并行', 'TP 8 × PP 16 × DP 64 或 128；长上下文时 CP 16', '专家分布在 8 个节点的 64 张卡上；DualPipe 流水线；FP8 训练，与 BF16 的相对损失误差低于 0.25%', '代码、数据和日志全部公开', 'Llama 3 的显存估算器和性能预测工具', '#par'],
+      ['学习率与批大小', '峰值 8×10⁻⁵，预热 8000 步，余弦 120 万步；批大小 4M、8M、16M token', '2.2×10⁻⁴ 常数到 10T，余弦降到 2.2×10⁻⁵；批大小 3072 到 15360 条', '3×10⁻⁴；余弦按 5T 设计，4T 处截断', 'isoFLOP 实验里每档单独设学习率（Llama 3 用 2×10⁻⁴ 到 4×10⁻⁴）', '#lr'],
+      ['训练运行', '54 天观察期 466 次中断，有效训练时间超过 90%', '没有不可恢复的损失尖峰，没有回滚', '八处稳定性改动：重复 n-gram 过滤、QK 归一化、z-loss 等', '小模型上调高学习率，复现注意力 logit 的增长', '#run'],
+      ['退火与长上下文', '六步从 8K 到 128K，约 800B token；退火到 0，检查点平均', 'YaRN，4K 到 32K 到 128K，各 1000 步，11.9 万卡时', '中期训练 50B token 做三遍，权重平均', '每加长一步，用大海捞针和短上下文分数是否恢复作为通过标准', '#anneal'],
+      ['多模态', '外挂图像编码器，经交叉注意力层接入语言模型（报告第 7 节）', 'V3 是纯文本模型', '纯文本模型', 'Qwen3-VL 先冻住视觉编码器和语言模型，只训中间的投影层', '#mm'],
+      ['监督微调', '拒绝采样每题 10 到 30 个候选；学习率 10⁻⁵，8500 到 9000 步', '后训练合计 5000 卡时', '沿用 Tülu 3 的配方', 'InstructGPT：1.3B 模型在偏好评测里胜过 175B 的 GPT-3', '#sft'],
+      ['强化学习', '六轮 SFT 加 DPO，β = 0.1，屏蔽格式 token，加 0.2 的 NLL 项', 'V3.2：六个领域的专家各做强化学习再蒸馏，后训练算力超过预训练的 10%', 'DPO 加 RLVR', 'ScaleRL：用前一段的 S 形曲线外推 10 万 GPU 小时的结果', '#rlscale'],
+      ['评测', '8-gram 污染分析；先预测 NLL 再映射成准确率', 'AIME、代码等可验证的评测', 'GSM8K 的 200 道测试题作开发集，只在其余 1119 道上报告', 'Llama 3 用 10²² FLOPs 以内的模型预测 405B 的 ARC-Challenge', '#eval']
+    ];
+    var card = $('#mapCard'), cur = 0, ctlS;
+    function render(i) {
+      cur = i; f.light(['s' + i]); var d = D[i];
+      card.innerHTML = '<table class="t left"><tr><th style="width:9em">' + d[0] + '</th><th>Llama 3 405B</th><th>DeepSeek-V3</th><th>OLMo 2 7B</th></tr>' +
+        '<tr><td>实际选择</td><td>' + d[1] + '</td><td>' + d[2] + '</td><td>' + d[3] + '</td></tr>' +
+        '<tr class="hl"><td>依据的小实验</td><td colspan="3">' + d[4] + '</td></tr></table>';
+      return (i + 1) + '. ' + d[0] + ' · 详见正文 <a href="' + d[5] + '">对应小节</a>';
+    }
+    ctlS = stepper($('#ctlMap'), D.length, render);
+    D.forEach(function (_, i) {
+      var g = f.at['s' + i].g; g.classList.add('hit');
+      g.addEventListener('click', function () { ctlS.set(i); });
+    });
+  })();
+
+  /* ---------- 图 2：isoFLOP 滑块 ---------- */
+  (function () {
+    var P1 = { E: 1.8172, A: 482.01, B: 2085.43, a: 0.3478, b: 0.3658, name: 'Epoch 重拟合' };
+    var P0 = { E: 1.69, A: 406.4, B: 410.7, a: 0.34, b: 0.28, name: 'Hoffmann 正文（四舍五入）' };
+    var P = P1;
+    var L = function (N, D) { return P.E + P.A / Math.pow(N, P.a) + P.B / Math.pow(D, P.b); };
+    function opt(C) { var G = Math.pow(P.a * P.A / (P.b * P.B), 1 / (P.a + P.b)), N = G * Math.pow(C / 6, P.b / (P.a + P.b)); return [N, C / 6 / N]; }
+    var p = FK.plot('#figIso', { w: 1000, h: 440, label: 'isoFLOP 曲线', x: { min: 1e7, max: 1e13, log: true, label: '\\role{op}{N}\\ \\text{(parameters)}' }, y: { min: 1.85, max: 3.1, label: '\\role{loss}{L}', ticks: [2, 2.25, 2.5, 2.75, 3] } });
+    var Ns = logspace(7, 13, 160);
+    var M = [['GPT-3', 175e9, 300e9, 'end', -12, -8], ['Gopher', 280e9, 300e9, 'start', 10, 14], ['Chinchilla', 70e9, 1.4e12, 'start', 8, 16], ['Llama 3 8B', 8e9, 15e12, 'end', -10, -10], ['Llama 3 405B', 405e9, 15.6e12, 'start', 10, 12], ['DeepSeek-V3', 37e9, 14.8e12, 'end', -10, 12], ['OLMo 2 7B', 7.3e9, 4.05e12, 'end', -10, 12]];
+    function draw(lc, tween) {
+      var C = Math.pow(10, lc);
+      for (var e = 18; e <= 26; e++) p.line('f' + e, Ns.map(function (N) { return [N, L(N, Math.pow(10, e) / 6 / N)]; }), { cls: 'faint', under: true });
+      p.line('locus', logspace(17, 27, 60).map(function (c) { var o = opt(c); return [o[0], L(o[0], o[1])]; }), { cls: 'guide', under: true });
+      p.line('cur', Ns.map(function (N) { return [N, L(N, C / 6 / N)]; }), { role: 'loss', tween: tween });
+      var o = opt(C); p.dot('opt', [o[0], L(o[0], o[1])], { role: 'out', cls: 'solid', r: 5.5 });
+      M.forEach(function (m, i) {
+        var Cm = 6 * m[1] * m[2], near = Math.abs(Math.log10(Cm) - lc) < 0.16;
+        if (near) { p.dot('m' + i, [m[1], L(m[1], m[2])], { role: 'op', r: 4.8 }); p.text('t' + i, '\\text{' + m[0] + '}', [m[1], L(m[1], m[2])], { anchor: m[3], dx: m[4], dy: m[5], size: 12.5, role: 'op' }); }
+        else { p.remove('m' + i); p.remove('t' + i); }
+      });
+      return o;
+    }
+    var s = slider($('#ctlIso'), 'C', { min: 19, max: 26, step: 0.02, value: Math.log10(5.88e23).toFixed(2), aria: '训练算力的对数' }, function (lc) {
+      var o = draw(lc), C = Math.pow(10, lc);
+      var near = M.filter(function (m) { return Math.abs(Math.log10(6 * m[1] * m[2]) - lc) < 0.16; }).map(function (m) { return m[0]; });
+      return sci(C) + ' FLOPs · N* = ' + si(o[0]) + ' · D* = ' + si(o[1]) + ' · 每参数 ' + (o[1] / o[0]).toFixed(0) + ' 个 token' + (near.length ? ' · 这一档附近：' + near.join('、') : '') +
+        ' · <a href="#" class="swp">' + (P === P1 ? '换成 Hoffmann 正文的参数' : '换回 Epoch 重拟合') + '</a>';
+    });
+    $('#ctlIso').addEventListener('click', function (e) { if (e.target.classList.contains('swp')) { e.preventDefault(); P = P === P1 ? P0 : P1; s.go(); } });
+  })();
+
+  /* ---------- 图 3：Porian 的四步修正 ---------- */
+  (function () {
+    var CC = 5.88e23;
+    var S = [[0.835, 3e12, '复现 Kaplan 的设定：a = 0.835，外推到 Chinchilla 的预算是 3T 参数'],
+             [0.706, 787e9, '把最后一层的计算量算进 FLOPs：a = 0.706，787B'],
+             [0.602, 292e9, '预热长度随模型大小缩放，不再对所有模型用同样长的预热：a = 0.602，292B'],
+             [0.571, 183e9, '余弦衰减的长度和每个配置的训练长度匹配：a = 0.571，183B'],
+             [0.497, 77e9, '按模型大小分别调学习率、批大小和 AdamW 的 β₂，学习率不衰减：a = 0.497，77B']];
+    var p = FK.plot('#figPorian', { w: 1000, h: 420, label: 'Porian 的四步修正', x: { min: 1e16, max: 1e24, log: true, label: '\\text{compute } C\\ \\text{(FLOPs)}' }, y: { min: 1e5, max: 1e13, log: true, label: '\\role{op}{N^*}' } });
+    var xs = logspace(16, Math.log10(CC), 40);
+    function pts(k) { return xs.map(function (c) { return [c, S[k][1] * Math.pow(c / CC, S[k][0])]; }); }
+    p.vline('cc', CC, { y0: 1e5, y1: 1e13 });
+    p.text('cct', '\\text{Chinchilla budget}', [CC, 1e13], { anchor: 'end', dx: -8, dy: 10, size: 12, cls: 'note' });
+    p.dot('chin', [CC, 70e9], { role: 'alt', cls: 'solid', r: 4.5 });
+    p.text('chint', '\\text{Chinchilla 70B}', [CC, 70e9], { anchor: 'end', dx: -10, dy: 16, size: 12, role: 'alt' });
+    var last = -1;
+    stepper($('#ctlPorian'), S.length, function (k) {
+      for (var i = 0; i < S.length; i++) { if (i < k) p.line('old' + i, pts(i), { cls: 'faint' }); else p.remove('old' + i); }
+      p.line('cur', pts(k), { role: 'op', tween: last >= 0 });
+      p.dot('end', [CC, S[k][1]], { role: 'out', cls: 'solid', r: 5.5 });
+      p.text('endt', '\\role{out}{' + (S[k][1] >= 1e12 ? (S[k][1] / 1e12) + 'T' : (S[k][1] / 1e9) + 'B') + '}', [CC, S[k][1]], { anchor: 'start', dx: 10, dy: 0, size: 14 });
+      p.text('slope', '\\role{op}{a = ' + S[k][0] + '}', [3e17, S[k][1] * Math.pow(3e17 / CC, S[k][0])], { anchor: 'start', dx: 8, dy: -16, size: 14 });
+      last = k;
+      return S[k][2];
+    });
+  })();
+
+  /* ---------- 图 4：FineWeb 的数据流 ---------- */
+  (function () {
+    var R = [['基础过滤后', 36, 'in', '96 个快照，WARC 抽取，网址黑名单、语种、质量规则：约 36T'],
+             ['全局去重', 4, 'loss', '所有快照放在一起做 MinHash：只剩 4T，训出来的模型几乎没有改进，放弃'],
+             ['逐快照去重', 20, 'in', '每个快照单独做 MinHash：20T，追平 RefinedWeb'],
+             ['C4 与自定义过滤', 15, 'in', '加上 C4 的部分规则和自己统计出的阈值：15T，这就是 FineWeb'],
+             ['教育质量 ≥ 3', 1.3, 'alt', 'Llama-3-70B 标注 46 万页，训分类器，阈值 3 分：1.3T，FineWeb-Edu']];
+    var p = FK.plot('#figFunnel', { w: 1000, h: 300, label: 'FineWeb 数据流', pad: { l: 170, r: 90, t: 20, b: 20 }, x: { min: 0, max: 36, hide: true }, y: { min: 5.4, max: 0, hide: true } });
+    R.forEach(function (r, i) { p.text('n' + i, '\\text{' + r[0] + '}', [0, i + 0.5], { anchor: 'end', dx: -14, size: 13.5 }); });
+    stepper($('#ctlFunnel'), R.length, function (k) {
+      R.forEach(function (r, i) {
+        if (i <= k) { p.rect('b' + i, [0, i + 0.18], [r[1], i + 0.82], { role: r[2], cls: i === k ? 'on' : '' }); p.text('v' + i, '\\text{' + r[1] + 'T}', [r[1], i + 0.5], { anchor: 'start', dx: 10, size: 13.5, role: r[2] }); }
+        else { p.remove('b' + i); p.remove('v' + i); }
+      });
+      return R[k][3];
+    });
+  })();
+
+  /* ---------- 图 5：在本页正文上训练的 BPE ---------- */
+  (function () {
+    var B = window.BPE, K = B.merges.length, rank = new Map(), vocab = [];
+    for (var i = 0; i < 256; i++) vocab.push([i]);
+    B.merges.forEach(function (m, r) { rank.set(m[0] * 65536 + m[1], r); vocab.push(vocab[m[0]].concat(vocab[m[1]])); });
+    var PAT = /'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}{1,3}| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
+    var enc = new TextEncoder(), dec = new TextDecoder('utf-8', { fatal: true });
+    function encode(text, k) {
+      var out = [];
+      (text.match(PAT) || []).forEach(function (w) {
+        var s = Array.from(enc.encode(w));
+        for (;;) {
+          var best = -1, br = Infinity;
+          for (var j = 0; j + 1 < s.length; j++) { var r = rank.get(s[j] * 65536 + s[j + 1]); if (r !== undefined && r < k && r < br) { br = r; best = j; } }
+          if (best < 0) break;
+          var a = s[best], b = s[best + 1], t = [];
+          for (var q = 0; q < s.length; q++) { if (q + 1 < s.length && s[q] === a && s[q + 1] === b) { t.push(256 + br); q++; } else t.push(s[q]); }
+          s = t;
+        }
+        out = out.concat(s);
+      });
+      return out;
+    }
+    function show(id) { var b = new Uint8Array(vocab[id]); try { return dec.decode(b); } catch (e) { return { raw: Array.from(b).map(function (x) { return x.toString(16).toUpperCase(); }).join(' ') }; } }
+    var lines = [['中文', '大模型只训一次，所有决定都在小模型上做完。'], ['英文', 'Training compute is roughly six times parameters times tokens.'], ['代码', 'loss = F.cross_entropy(logits.view(-1, V), targets.view(-1))']];
+    var tk = FK.tokens('#figBpe', { label: 'BPE 切分' });
+    var cpt = B.curve.map(function (n) { return B.chars / n; });
+    var ymax = Math.ceil(cpt[cpt.length - 1] * 5 + 0.5) / 5;
+    var p = FK.plot('#figBpeCurve', { w: 1000, h: 250, label: '压缩率曲线', pad: { l: 76, r: 34, t: 34, b: 50 }, x: { min: 0, max: K, label: '\\text{merges } k' }, y: { min: 0, max: ymax, label: '\\role{in}{\\text{characters per token}}' } });
+    var xs = []; for (var k = 0; k <= K; k += Math.max(1, Math.floor(K / 200))) xs.push([k, cpt[k]]);
+    p.line('c', xs, { role: 'in' });
+    slider($('#ctlBpe'), 'k', { min: 0, max: K, step: 1, value: Math.min(K, 600), aria: '合并次数' }, function (k) {
+      var per = lines.map(function (l) { var ids = encode(l[1], k); return { label: l[0] + ' · ' + ids.length + ' 个 token', toks: ids.map(show), n: ids.length, c: Array.from(l[1]).length }; });
+      tk.set(per);
+      p.dot('d', [k, cpt[k]], { role: 'out', cls: 'solid', r: 5.5 });
+      return '合并 ' + k + ' 次，词表 ' + (256 + k) + ' · 整份正文每个 token ' + cpt[k].toFixed(2) + ' 个字符 · 中文那句每字 ' + (per[0].n / per[0].c).toFixed(2) + ' 个 token';
+    });
+  })();
+
+  /* ---------- 图 6：8B 模型的零件清单 ---------- */
+  (function () {
+    var cfg = { '8B': [4096, 32, 14336], '70B': [8192, 80, 28672], '405B': [16384, 126, 53248] };
+    function parts(name) {
+      var c = cfg[name], d = c[0], L = c[1], F = c[2], kv = 1024, V = 128256;
+      var blk = [['Q', d * d, 'alt'], ['K', d * kv, 'alt'], ['V', d * kv, 'alt'], ['O', d * d, 'alt'], ['gate', d * F, 'op'], ['up', d * F, 'op'], ['down', d * F, 'op']];
+      var b = blk.reduce(function (s, x) { return s + x[1]; }, 0) + 2 * d;
+      return { emb: V * d, blk: blk, b: b, L: L, total: 2 * V * d + L * b + d };
+    }
+    var p = FK.plot('#figParts', { w: 1000, h: 300, label: '参数拆解', pad: { l: 40, r: 40, t: 30, b: 16 }, x: { min: 0, max: 1, hide: true }, y: { min: 10, max: 0, hide: true } });
+    var ids = [];
+    function clear() { ids.forEach(function (i) { p.remove(i); }); ids = []; }
+    function R(id, x0, x1, y0, y1, role, cls) { ids.push(id); p.rect(id, [x0, y0], [x1, y1], { role: role, cls: cls || '' }); }
+    function T(id, txt, x, y, o) { ids.push(id); p.text(id, txt, [x, y], o); }
+    function seg(row, list, total, y0, y1, prefix) {   // list: [name, count, role]; labels inside if room, else above
+      var x = 0, out = [];
+      list.forEach(function (s, i) {
+        var w = s[1] / total, id = prefix + i, px = w * 920;
+        R(id, x, x + w, y0, y1, s[2]);
+        var txt = s[0] + ' ' + si(s[1]), need = txt.length * 7.2 + 10;
+        if (px > need) T(id + 't', '\\text{' + txt + '}', x + w / 2, (y0 + y1) / 2, { anchor: 'middle', size: 12.5, role: s[2] });
+        else if (px > s[0].length * 7.6 + 6) T(id + 't', '\\text{' + s[0] + '}', x + w / 2, (y0 + y1) / 2, { anchor: 'middle', size: 12.5, role: s[2] });
+        else out.push(s);
+        x += w;
+      });
+      return out;
+    }
+    var steps = [
+      function () { var q = parts('8B'); R('all', 0, 1, 1.2, 3.2, 'op'); T('allt', '\\text{Llama 3 8B · ' + (q.total / 1e9).toFixed(2) + 'B}', 0.5, 2.2, { anchor: 'middle', size: 14, role: 'op' }); return '整个模型 8,030,261,248 个参数'; },
+      function () { return top('8B') + '：嵌入和输出层各 5.25 亿，32 个块合计 69.8 亿'; },
+      function () { var t = top('8B'); detail('8B'); return '一个块 2.18 亿：前馈层三个矩阵各 5873 万，Q 和 O 各 1678 万，K 和 V 各 419 万'; },
+      function () { top('70B'); detail('70B'); return '70B：嵌入占比降到 3.0%，前馈层占 79.9%'; },
+      function () { top('405B'); detail('405B'); return '405B：嵌入降到 1.0%，K 和 V 只有 Q 的 1/16，前馈层占 81.2%'; }
+    ];
+    function top(name) {
+      var q = parts(name), list = [['Embedding', q.emb, 'in'], [q.L + ' × block', q.L * q.b, 'op'], ['Output', q.emb, 'out']];
+      var rest = seg(0, list, q.total, 1.2, 3.2, 'tp');
+      if (rest.length) { T('e0', '\\text{Embedding ' + si(q.emb) + '}', 0, 0.55, { anchor: 'start', size: 12, role: 'in' }); T('e1', '\\text{Output ' + si(q.emb) + '}', 1, 0.55, { anchor: 'end', size: 12, role: 'out' }); }
+      return name;
+    }
+    function detail(name) {
+      var q = parts(name), x0 = q.emb / q.total, x1 = x0 + q.b / q.total;
+      R('slice', x0, x1, 1.2, 3.2, 'op', 'on');
+      ids.push('w1'); p.line('w1', [[x0, 3.2], [x0, 4.6], [0, 4.6], [0, 5.6]], { cls: 'faint' });
+      ids.push('w2'); p.line('w2', [[x1, 3.2], [x1, 4.6], [1, 4.6], [1, 5.6]], { cls: 'faint' });
+      var rest = seg(1, q.blk, q.b - 2 * q.blk[0][1] * 0, 5.6, 7.6, 'bk');
+      if (rest.length) T('kv', '\\text{K, V ' + si(q.blk[1][1]) + ' each}', q.blk[0][1] / q.b + q.blk[1][1] / q.b, 8.4, { anchor: 'middle', size: 12, role: 'alt' });
+      T('blab', '\\text{one block · ' + si(q.b) + '}', 0, 9.5, { anchor: 'start', size: 12.5, cls: 'note' });
+    }
+    stepper($('#ctlParts'), steps.length, function (k) { clear(); return steps[k](); });
+  })();
+
+  /* ---------- 图 7：每卡显存 ---------- */
+  (function () {
+    var XM = 170;
+    var p = FK.plot('#figMem', { w: 1000, h: 330, label: '每卡显存', pad: { l: 250, r: 90, t: 26, b: 52 }, x: { min: 0, max: XM, label: '\\text{GB per GPU}', ticks: [0, 20, 40, 60, 80, 100, 120, 140, 160] }, y: { min: 4.3, max: 0, hide: true } });
+    var rows = [['Data parallel', function (N, A) { return [2 * N, 2 * N, 12 * N, A]; }],
+                ['ZeRO-1 · 64 GPUs', function (N, A) { return [2 * N, 2 * N, 12 * N / 64, A]; }],
+                ['ZeRO-3 · 64 GPUs', function (N, A) { return [2 * N / 64, 2 * N / 64, 12 * N / 64, A]; }],
+                ['TP 8 · PP 16 · FSDP 128', function (N, A) { return [2 * N / 128, 2 * N / 16384, 12 * N / 16384, A / 8]; }]];
+    var roles = ['op', 'alt', 'norm', 'in'];
+    rows.forEach(function (r, i) { p.text('n' + i, '\\text{' + r[0] + '}', [0, i + 0.5], { anchor: 'end', dx: -14, size: 13.5 }); });
+    p.vline('lim', 80, { role: 'loss', y0: 4.3, y1: 0 });
+    p.text('limt', '\\role{loss}{\\text{80 GB}}', [80, 0], { anchor: 'start', dx: 6, dy: -8, size: 12.5 });
+    slider($('#ctlMem'), 'N', { min: 9, max: 11.7, step: 0.01, value: Math.log10(8.03e9).toFixed(2), aria: '参数量的对数' }, function (ln) {
+      var N = Math.pow(10, ln), d = Math.pow(N * 128 / 12, 1 / 3), L = d / 128, A = 34 * 8192 * d * L;
+      rows.forEach(function (r, i) {
+        var v = r[1](N, A).map(function (b) { return b / 1e9; }), x = 0, tot = v.reduce(function (a, b) { return a + b; }, 0);
+        v.forEach(function (g, j) { var a = Math.min(x, XM), b = Math.min(x + g, XM); p.rect('r' + i + j, [a, i + 0.2], [b, i + 0.8], { role: roles[j], rx: 0 }); x += g; });
+        p.text('v' + i, '\\text{' + (tot > XM ? '→ ' : '') + (tot >= 1000 ? (tot / 1000).toFixed(1) + ' TB' : tot.toFixed(0) + ' GB') + '}', [Math.min(tot, XM), i + 0.5], { anchor: 'start', dx: 8, size: 13, role: tot > 80 ? 'loss' : null });
+      });
+      var fit = rows.filter(function (r) { var t = r[1](N, A).reduce(function (a, b) { return a + b; }, 0) / 1e9; return t <= 80; }).length;
+      return si(N) + ' 参数 · 模型状态 ' + (16 * N / 1e9 >= 1000 ? (16 * N / 1e12).toFixed(1) + ' TB' : (16 * N / 1e9).toFixed(0) + ' GB') + ' · 激活约 ' + (A / 1e9).toFixed(0) + ' GB（示意）· 四种方案里 ' + fit + ' 种装得下';
+    });
+  })();
+
+  /* ---------- 图 8：检查点间隔 ---------- */
+  (function () {
+    var lam = 419 / (16384 * 54 * 24 * 60), d = 1 / 3, R = 6;          // 每卡每分钟的故障率；δ 与 R 为示意
+    var p = FK.plot('#figCkpt', { w: 1000, h: 400, label: '检查点间隔与浪费', x: { min: 1, max: 300, log: true, label: '\\text{checkpoint interval } \\tau\\ \\text{(min)}', ticks: [1, 3, 10, 30, 100, 300], fmt: function (v) { return String(v); } }, y: { min: 0, max: 0.6, label: '\\role{loss}{\\text{time wasted}}', ticks: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], fmt: function (v) { return Math.round(v * 100) + '\\%'; } } });
+    var ts = logspace(0, Math.log10(300), 120);
+    slider($('#ctlCkpt'), 'GPUs', { min: 10, max: 17, step: 0.05, value: 14, aria: '卡数的以 2 为底的对数' }, function (lg) {
+      var n = Math.round(Math.pow(2, lg)), M = 1 / (lam * n), t = Math.sqrt(2 * d * M), w = function (x) { return d / x + x / (2 * M) + R / M; };
+      p.line('a', ts.map(function (x) { return [x, d / x]; }), { cls: 'faint' });
+      p.line('b', ts.map(function (x) { return [x, x / (2 * M)]; }), { cls: 'faint' });
+      p.line('c', ts.map(function (x) { return [x, R / M]; }), { cls: 'faint' });
+      p.line('tot', ts.map(function (x) { return [x, w(x)]; }), { role: 'loss' });
+      p.dot('o', [t, w(t)], { role: 'out', cls: 'solid', r: 5.5 });
+      p.text('ot', '\\role{out}{\\tau^* = ' + t.toFixed(t < 10 ? 1 : 0) + '\\ min}', [t, w(t)], { anchor: 'middle', dy: 22, size: 13 });
+      p.text('la', '\\delta/\\tau', [1.15, d / 1.15], { anchor: 'start', dx: 8, size: 12.5, cls: 'note' });
+      var xb = Math.min(260, 2 * M * 0.42); p.text('lb', '\\tau/2M', [xb, xb / (2 * M)], { anchor: 'end', dx: -8, dy: -4, size: 12.5, cls: 'note' });
+      p.text('lc', 'R/M', [300, R / M], { anchor: 'end', dy: -12, size: 12.5, cls: 'note' });
+      return n.toLocaleString() + ' 张卡 · 平均每 ' + (M >= 120 ? (M / 60).toFixed(1) + ' 小时' : M.toFixed(0) + ' 分钟') + '一次故障 · 最优间隔 ' + t.toFixed(t < 10 ? 1 : 0) + ' 分钟 · 浪费 ' + (100 * w(t)).toFixed(1) + '%';
+    });
+  })();
+
+  /* ---------- 图 9：两条多模态路线 ---------- */
+  (function () {
+    var f = FK.fig('#figMM', 1000, 330, '外挂式与原生式多模态');
+    var ya = 100, yb = 260;
+    f.row(ya, 150, [
+      { id: 'a0', box: 'Frames\n1–2 fps', role: 'in', w: 'l' },
+      { id: 'a1', box: 'SigLIP-2\nViT', role: 'op', w: 'l', param: '\\text{pre-trained apart}' },
+      { id: 'a2', box: 'Merger', role: 'op', w: 'l', param: '\\text{trained first}' },
+      { id: 'aa', add: true, gap: 34 },
+      { id: 'a3', box: 'Qwen3', role: 'op', w: 'l', param: '\\text{pre-trained on text}' }
+    ]);
+    f.box('at', { x: f.p('aa')[0], y: ya - 70, w: 'l', role: 'in', text: 'Text +\n<3.0 s>' });
+    f.wire([f.p('at.b'), [f.p('aa')[0], ya - 8.2]]);
+    f.io('Answer', { from: 'a3', role: 'out' });
+    f.row(yb, 150, [
+      { id: 'b0', box: 'Frames\n1 fps', role: 'in', w: 'l' },
+      { id: 'b1', box: 'Tokenize', role: 'op', w: 'l', param: '66\\text{–}258/frame' },
+      { id: 'bb', add: true, gap: 34 },
+      { id: 'b2', box: 'Gemini', role: 'alt', w: 'l', param: '\\text{all modalities from step 0}' }
+    ]);
+    f.box('bt', { x: f.p('bb')[0], y: yb - 70, w: 'l', role: 'in', text: 'Text\naudio 32/s' });
+    f.wire([f.p('bt.b'), [f.p('bb')[0], yb - 8.2]]);
+    f.io('Answer', { from: 'b2', role: 'out' });
+    f.note('\\text{bolt-on}', 40, ya, 'start');
+    f.note('\\text{native}', 40, yb, 'start');
+  })();
+
+  /* ---------- 图 10：一百万 token 装多少视频 ---------- */
+  (function () {
+    var p = FK.plot('#figVid', { w: 1000, h: 380, label: '上下文能装的视频时长', x: { min: 0.25, max: 4, log: true, label: '\\text{frames per second}', ticks: [0.25, 0.5, 1, 2, 4], fmt: function (v) { return String(v); } }, y: { min: 5, max: 2000, log: true, label: '\\text{minutes in 1M tokens}', ticks: [10, 30, 60, 180, 600, 1800], fmt: function (v) { return String(v); } } });
+    var xs = [], f0 = 0.25; while (f0 <= 4.0001) { xs.push(f0); f0 *= 1.05; } xs.push(4);
+    p.hline('h1', 60, { x0: 0.25, x1: 4 }); p.text('h1t', '\\text{1 hour}', [4, 60], { anchor: 'end', dy: -11, size: 12, cls: 'note' });
+    p.hline('h3', 180, { x0: 0.25, x1: 4 }); p.text('h3t', '\\text{3 hours}', [4, 180], { anchor: 'end', dy: -11, size: 12, cls: 'note' });
+    slider($('#ctlVid'), '每帧 token', { min: 32, max: 512, step: 2, value: 258, aria: '每帧的 token 数' }, function (t) {
+      var mins = function (fps, au) { return 1e6 / (fps * t + au) / 60; };
+      p.line('va', xs.map(function (x) { return [x, mins(x, 32)]; }), { role: 'out' });
+      p.line('vn', xs.map(function (x) { return [x, mins(x, 0)]; }), { role: 'in', cls: 'thin' });
+      p.dot('d', [1, mins(1, 32)], { role: 'out', cls: 'solid', r: 5.5 });
+      p.text('dt', '\\role{out}{' + mins(1, 32).toFixed(0) + '\\ min}', [1, mins(1, 32)], { anchor: 'start', dx: 10, dy: 14, size: 13 });
+      p.text('vat', '\\role{out}{\\text{video + audio}}', [0.27, mins(0.27, 32)], { anchor: 'start', dy: 16, size: 12.5 });
+      p.text('vnt', '\\role{in}{\\text{video only}}', [0.27, mins(0.27, 0)], { anchor: 'start', dy: -14, size: 12.5 });
+      return t + ' 个 token 每帧 · 每秒 1 帧时，带音轨装 ' + mins(1, 32).toFixed(0) + ' 分钟，只看画面装 ' + mins(1, 0).toFixed(0) + ' 分钟 · 每秒 4 帧时带音轨只有 ' + mins(4, 32).toFixed(0) + ' 分钟';
+    });
+  })();
+
+  /* ---------- 图 11：GRPO 的优势 ---------- */
+  (function () {
+    var G = 16;
+    var p = FK.plot('#figGrpo', { w: 1000, h: 360, label: 'GRPO 优势', x: { min: 0, max: G, hide: true }, y: { min: -4, max: 4, label: '\\role{out}{A_i}', ticks: [-4, -2, 0, 2, 4] } });
+    p.hline('z', 0, {});
+    slider($('#ctlGrpo'), '答对', { min: 0, max: G, step: 1, value: 4, aria: '16 个回答里答对的个数' }, function (k) {
+      var q = k / G, sd = Math.sqrt(q * (1 - q)), ap = sd ? (1 - q) / sd : 0, an = sd ? -q / sd : 0;
+      for (var i = 0; i < G; i++) { var ok = i < k, a = ok ? ap : an; p.rect('b' + i, [i + 0.18, 0], [i + 0.82, a], { role: ok ? 'op' : 'loss', rx: 1 }); }
+      var tot = k * Math.abs(ap) + (G - k) * Math.abs(an);
+      if (!sd) return k + ' / 16 · 奖励全部相同，标准差为 0，这道题不产生任何梯度';
+      return k + ' / 16 · 答对的 A = +' + ap.toFixed(2) + ' · 答错的 A = ' + an.toFixed(2) + ' · 信号总量 ' + tot.toFixed(1) + '（最大 16，在答对一半时）';
+    });
+  })();
+
+  /* ---------- 图 12：涌现与评分方式 ---------- */
+  (function () {
+    var c = 5.6e8, al = -0.401, pN = function (N) { return Math.exp(-Math.pow(N / c, al)); };
+    var p = FK.plot('#figEmerge', { w: 1000, h: 400, label: '涌现与评分方式', x: { min: 1e8, max: 1e12, log: true, label: '\\role{op}{N}' }, y: { min: 0, max: 1, label: '\\text{accuracy}', ticks: [0, 0.25, 0.5, 0.75, 1] } });
+    var Ns = logspace(8, 12, 160);
+    p.line('pt', Ns.map(function (N) { return [N, pN(N)]; }), { role: 'op', cls: 'thin' });
+    p.text('ptt', '\\role{op}{p(N)\\ \\text{per token}}', [1.6e8, pN(1.6e8)], { anchor: 'start', dx: 10, dy: -14, size: 13 });
+    p.hline('res', 0.01, { x0: 1e8, x1: 1e12 });
+    p.text('rest', '\\text{1\\% · resolution of 100 questions}', [1e12, 0.01], { anchor: 'end', dy: -12, size: 12, cls: 'note' });
+    slider($('#ctlEmerge'), 'L', { min: 1, max: 40, step: 1, value: 10, aria: '答案的 token 数' }, function (L) {
+      p.line('em', Ns.map(function (N) { return [N, Math.pow(pN(N), L)]; }), { role: 'out' });
+      var at = function (acc) { var lce = -Math.log(acc) / L; return c * Math.pow(lce, 1 / al); };
+      var n1 = at(0.01), n5 = at(0.5);
+      p.text('emt', '\\role{out}{p(N)^{' + L + '}}', [n5, 0.5], { anchor: 'end', dx: -12, dy: -6, size: 14 });
+      return 'L = ' + L + ' · 精确匹配从 1% 升到 50%，参数量从 ' + si(n1) + ' 到 ' + si(n5) + '，跨 ' + (n5 / n1).toFixed(1) + ' 倍';
+    });
+  })();
+});
+</script>
+</body>
+</html>

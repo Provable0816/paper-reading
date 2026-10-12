@@ -1,0 +1,5 @@
+user/
+# downloaded source PDFs and local check outputs stay out of the repository
+demos/**/*.pdf
+demos/**/dom.html
+demos/**/shot-*.png

@@ -1,0 +1,80 @@
+<h1>LayerNorm 的位置决定初始化时的梯度尺度</h1>
+<div class="info"><span class="k">论文</span><b>On Layer Normalization in the Transformer Architecture</b><br><span class="k">作者</span>Ruibin Xiong, Yunchang Yang, Di He, Kai Zheng, Shuxin Zheng, Chen Xing, Huishuai Zhang, Yanyan Lan, Liwei Wang, Tie-Yan Liu（微软亚洲研究院、中科院计算所、北京大学、南开大学）<br><span class="k">出处</span>ICML 2020 · <a href="https://arxiv.org/abs/2002.04745">arXiv:2002.04745</a>（v1 2020 年 2 月，v2 2020 年 6 月）<br><span class="k">代码</span>未找到官方代码。文中的最小实现按论文描述写成，非官方，所有实测数字都来自它<br><span class="k">核心洞见</span>LayerNorm 把穿过它的梯度按输入范数的倒数缩放。Post-LN 在每一层都把范数拉回 $\sqrt d$，所以最后一层的梯度不随层数变小；Pre-LN 的主干上只有加法，残差流随层数变粗，最后那个 LayerNorm 于是把整个网络的梯度压低约 $\sqrt L$ 倍。</div>
+<div class="note"><b>颜色</b><span class="r-in">蓝色</span>是输入和残差流，<span class="r-op">绿色</span>是带参数的子层，<span class="r-norm">黄色</span>是 LayerNorm 和残差相加，<span class="r-alt">紫色</span>是 Pre-LN 多出来的最后一个 LayerNorm，<span class="r-loss">橙红</span>是损失和梯度。</div>
+
+<h2>BLEU 8.45 与 34 之间的一个 warm-up</h2>
+<p>在 IWSLT14 德译英上训练一个 6 层编码器、6 层解码器的标准 Transformer，优化器是 Adam，峰值学习率 $10^{-3}$ 或 $5\times10^{-4}$。去掉学习率预热（warm-up），BLEU 只有 8.45；加上 4000 步预热，BLEU 到 34 左右。模型、数据、峰值学习率都没动，差别只在前几千步学习率怎么走。【文中有据，第 4 页及图 2(a)】</p>
+<p>预热的写法很简单，前 $T_{\text{warmup}}$ 步学习率从 0 线性升到峰值：</p>
+<p>$$\mathrm{lr}(t)=\frac{t}{T_{\text{warmup}}}\,\mathrm{lr}_{\max},\qquad t\le T_{\text{warmup}}$$</p>
+<p>代入数字看它在做什么。$T_{\text{warmup}}=4000$、$\mathrm{lr}_{\max}=10^{-3}$ 时，第 1 步的学习率是 $2.5\times10^{-7}$，第 400 步是 $10^{-4}$，到第 4000 步才用上峰值。也就是说，前几百步模型几乎是原地不动地在看梯度。把预热缩到 500 步，$\mathrm{lr}_{\max}=5\times10^{-4}$ 时 BLEU 是 31.16，$10^{-3}$ 时掉到 2.77。预热长度和峰值学习率绑在一起，单调一个都不行。</p>
+<figure class="pf"><img src="__FIG2__" alt="论文图 2"></figure>
+<p class="fk-cap"><b>论文图 2</b>（第 4 页）左两幅是 Adam，右两幅是 SGD。该看的是每幅图里那几条贴着底部的 BLEU 曲线，它们全是去掉预热或预热太短的配置。原文没有说 8.45 对应哪一个峰值学习率。</p>
+<p>这个现象在当时有两种流行解释。一种来自大批量训练（Goyal et al. 2017）：批量很大时，一开始用大学习率会把模型推到坏区域，所以要预热。但这里每批只有 4096 个 token，谈不上大批量。另一种来自 RAdam（Liu et al. 2019a，<b>On the Variance of the Adaptive Learning Rate and Beyond</b>）：Adam 的二阶矩估计 $v_t$ 在最初几步只见过很少几个梯度，方差很大，导致自适应学习率忽大忽小，预热是在等 $v_t$ 估准。作者用一个对照把第二种解释推开了一半：换成没有二阶矩的普通 SGD，不预热同样失败，15 个 epoch 里 BLEU 刚过 0。既然不用 Adam 也要预热，原因就不只在 Adam 身上。【文中有据，第 4 至 5 页】</p>
+<p>这个 SGD 对照的说服力要打个折扣。图 2(b) 里带预热的 SGD 也远低于 Adam，SGD 训 Transformer 本来就训不好，它失败的原因可能不止一个。后面讲到 Adam 时还会回到这里。</p>
+<p>作者押注的是另一个方向：预热只发生在前几千步，那就去看第 0 步，也就是初始化那一刻，梯度长什么样。</p>
+<p>这背后有三张牌。第一张是一个几乎无法反驳的观察，一个调度超参数让 BLEU 在 8.45 和 34 之间来回。第二张是工具，同一批作者（Di He、Liwei Wang、Tie-Yan Liu）前一年刚用动力系统的视角分析过 Transformer（Lu et al. 2019），平均场理论（mean field theory）分析初始化的路数他们是熟的。第三张最硬：要推荐的改法 Pre-LN 早就存在，Tensor2Tensor 里有实现，fairseq 里是一个命令行开关，任何人不改一行代码就能试。所以这篇论文的贡献不是发明 Pre-LN，而是解释它为什么好训，并据此把预热拿掉。同期 Nguyen &amp; Salazar（2019，<b>Transformers without Tears</b>）也从实验上发现 Pre-LN 不预热能训，这篇论文多的是理论。【推断，依据：引言第 2 页、相关工作第 2 页】</p>
+<div class="bench">
+<p>以负责人的身份从第一版开始。第一版是论文里的基线：Post-LN，Adam，$\mathrm{lr}=10^{-3}$，不预热。症状是验证损失降一点就停住，停在比正常训练高好几个单位的地方，BLEU 个位数。这种症状不像过拟合（训练损失同样下不去），也不像数据管线坏了（加上预热就好）。</p>
+<p>代价最小的诊断有两个。一是把前 200 步每一层的梯度范数和<b>更新量与权重之比</b> $\lVert\Delta W\rVert/\lVert W\rVert$ 打出来，看失败是不是在最初几十步就发生了，以及发生在哪几层。二是在第 50、100、200 步各存一次检查点，和带预热的那次运行对比，确定两条轨迹从哪一步开始分开。如果前 100 步就分开了，问题出在初始化附近；如果几千步后才分开，就要去找别的原因。</p>
+<p>补丁是预热 4000 步。代价有两笔。一是调参，预热长度和峰值学习率要一起搜，论文里 500 步配 $10^{-3}$ 就只剩 2.77 BLEU。二是时间，前几千步学习率很小，等于白跑。附录 H 还试了第三种补丁，全程固定一个很小的学习率 $10^{-4}$，27 个 epoch 后验证损失 4.3，能训但慢，也达不到最好结果。【文中有据，第 4 页、附录 H】</p>
+</div>
+
+<h2>两种摆法</h2>
+<p>Transformer 的每一层有两个子层，自注意力和前馈网络（FFN），每个子层外面都有一条残差连接和一个 LayerNorm（下文简称 LN）。论文要比较的只是 LN 放在哪里。写成两行：</p>
+<p>$$\text{Post-LN:}\quad x\leftarrow \role{norm}{\mathrm{LN}}\big(\role{in}{x}+\role{op}{F}(\role{in}{x})\big)\qquad\qquad \text{Pre-LN:}\quad x\leftarrow \role{in}{x}+\role{op}{F}\big(\role{norm}{\mathrm{LN}}(\role{in}{x})\big)$$</p>
+<p>$\role{op}{F}$ 依次是注意力和 FFN。Post-LN 是 2017 年原版 Transformer 和 BERT 的写法，先相加再归一化。Pre-LN 把 LN 挪到子层入口，先归一化再进子层，子层输出直接加回主干；因为主干从头到尾没有被归一化过，Pre-LN 在整个网络的最后还要再加一个 LN，再接输出层。</p>
+<div class="fk-fig" id="figArch"></div>
+<div class="fk-ctl" id="ctlArch"></div>
+<p class="fk-cap"><b>图 1</b>上一行 Post-LN，下一行 Pre-LN，都只画一层，$N\times$ 表示重复 $L$ 次。点下方的箭头一步步看从损失回到最后一层 $W^2$ 的路径；点 Pre-LN 那个紫色的 Final LN，会收起或展开它的内部。</p>
+<p>把这张图当成一条主干线来看，差别一下就出来了。Post-LN 的主干上每隔一个子层就坐着一个 LN，信号和梯度每过一层都要穿过两次归一化。Pre-LN 的主干上只有加号，从词嵌入一路加到最后的 LN，中间没有任何东西改变主干的尺度；子层像挂在主干旁边的支路，只往主干上加东西。</p>
+<p>后面的推导都在这两种主干上做。为了能算，论文做了三处简化（第 5 页）：只看单头注意力；所有权重矩阵都取 $d\times d$；把注意力里的 $W^Q$、$W^K$ 初始化为零，这样初始时每个位置对所有位置的注意力都是均匀的 $1/n$，注意力子层就退化成对整个序列的 $\role{in}{x}W^V$ 取平均。前两处只影响常数，第三处是为了让引理 2 能算出来，它把注意力在初始化时可能带来的数据相关的混合全部去掉了。真实训练里 $W^Q$、$W^K$ 用的是 Xavier 初始化，不是零。</p>
+<table class="t left">
+<tr><th>符号</th><th>形状</th><th>含义</th></tr>
+<tr><td>$\role{in}{x_{l,i}}$</td><td>$\mathbb{R}^d$，$d=512$</td><td>第 $l$ 层的输入在位置 $i$ 的向量，$l=1,\dots,L$；$x_{0,i}$ 是词嵌入加位置嵌入</td></tr>
+<tr><td>$x^{\text{post},5}_{l,i}$</td><td>$\mathbb{R}^d$</td><td>Post-LN 第 $l$ 层 FFN 残差相加之后、最后那次 LN 之前的向量（表 1 左栏第 5 行）</td></tr>
+<tr><td>$\role{param}{W^{1,l}},\ \role{param}{W^{2,l}}$</td><td>$d\times d_{ff}$，$d_{ff}\times d$</td><td>第 $l$ 层 FFN 的两个矩阵；理论里取 $d_{ff}=d$，IWSLT 实验里 $d_{ff}=1024$</td></tr>
+<tr><td>$J_{\mathrm{LN}}(x)$</td><td>$d\times d$</td><td>LN 在 $x$ 处的雅可比矩阵 $\partial\,\mathrm{LN}(x)/\partial x$</td></tr>
+<tr><td>$\role{loss}{\tilde{\mathcal L}}$</td><td>标量</td><td>整条序列的损失，各位置交叉熵的平均</td></tr>
+</table>
+<p>顺带纠正论文引言里一处引用。第 1 页把 GPT-2（Radford et al. 2019）列为基于 Post-LN 的预训练模型，但 GPT-2 论文第 2.3 节写明它把 LN 挪到了每个子层的输入处，并在最后一个注意力块后加了一个 LN，这正是 Pre-LN。换句话说，到 2019 年最大的生成式模型已经在用 Pre-LN 了。【文中有据，本文第 1 页与 GPT-2 论文第 2.3 节】</p>
+
+<h2>LayerNorm 的雅可比</h2>
+<p>要知道梯度穿过 LN 会被放大还是缩小，先看 LN 在几何上做了什么。取 $\gamma=1$、$\beta=0$（初始化时就是这样）：</p>
+<p>$$\role{norm}{\mathrm{LN}}(x)=\frac{x-\mu\mathbf 1}{\sigma},\qquad \mu=\frac1d\sum_k x_k,\qquad \sigma^2=\frac1d\sum_k (x_k-\mu)^2$$</p>
+<p>分两步看。减去均值，是把 $x$ 投影到和全 1 向量垂直的那个超平面上，记投影后的向量为 $y$。除以 $\sigma$，等于除以 $\lVert y\rVert/\sqrt d$，于是输出的长度永远是 $\sqrt d$。所以 LN 的输出总落在一个半径为 $\sqrt d$ 的球面上，输入只决定落在球面的哪个方向。</p>
+<p>这带出一个直接的推论：把输入整体放大 10 倍，输出一点不变，$\mathrm{LN}(10x)=\mathrm{LN}(x)$。现在请读者先想一下，同一个小扰动 $\delta$ 加在一个短的 $x$ 上和加在一个长的 $x$ 上，哪一次输出变得多？</p>
+<p>答案是短的那次。$x$ 越长，同样大小的 $\delta$ 让它的方向转过的角度越小，而 LN 的输出只关心方向。转过的角度约等于 $\lVert\delta\rVert/\lVert y\rVert$，再乘上球的半径 $\sqrt d$，就是输出的变化量。这就是论文引理 3 的内容：</p>
+<p>$$J_{\mathrm{LN}}(x)=\frac{\sqrt d}{\lVert y\rVert_2}\Big(I-\frac{y y^\top}{\lVert y\rVert_2^2}\Big)\Big(I-\frac1d\mathbf 1\mathbf 1^\top\Big),\qquad \lVert J_{\mathrm{LN}}(x)\rVert_2=O\Big(\frac{\sqrt d}{\lVert x\rVert_2}\Big)$$</p>
+<p>后面两个括号都是投影矩阵，特征值只有 0 和 1：一个去掉沿 $y$ 方向的分量（沿半径方向推，输出不变），一个去掉沿全 1 方向的分量（所有坐标一起加同一个数，减均值时被消掉）。真正决定大小的只有前面那个标量 $\sqrt d/\lVert y\rVert$。反向传播时梯度乘的是 $J_{\mathrm{LN}}^\top$，同一个标量也乘在梯度上。</p>
+<div class="steps">
+<div class="st">step one</div>
+<p>取 $d=4$，$x=(2,0,0,-2)$。均值为 0，所以 $y=x$，$\lVert y\rVert=\sqrt8\approx2.83$，$\sigma=\sqrt2$，$\mathrm{LN}(x)=(1.414,0,0,-1.414)$，长度平方 $=4=d$。</p>
+<div class="st">step two</div>
+<p>加一个和 $y$、和全 1 向量都垂直的小推力 $\delta=(0,0.1,-0.1,0)$。$x+\delta$ 的 $\sigma^2=(4+0.01+0.01+4)/4=2.005$，输出第二个坐标是 $0.1/1.416=0.0706$。推了 0.1，输出动了 0.0706，增益 $0.706=\sqrt d/\lVert y\rVert=2/2.83$。</p>
+<div class="st">step three</div>
+<p>把 $x$ 放大到 $(20,0,0,-20)$，推力不变。$\sigma^2=200.005$，输出第二个坐标是 $0.1/14.14=0.00707$，增益掉到 $0.0707$。输入长了 10 倍，穿过 LN 的增益小了 10 倍。</p>
+</div>
+<p>所以只要知道每个 LN 的输入有多长，就知道梯度穿过它时被缩放了多少。下一节就去算这个长度，两种摆法在这里分道扬镳。</p>
+<div class="bench">
+<p>这一节给负责人留下一个很便宜的仪表：在每个 LN 的入口打印 $\lVert x\rVert/\sqrt d$。它直接就是梯度穿过这个 LN 时被除掉的倍数，不需要做任何反向传播。</p>
+<p>它在 Post-LN 上还有一种训练中途才出现的失效值得盯着。Post-LN 的 LN 坐在 $x+F(x)$ 之后，训练开始后如果某些层的支路输出 $\lVert F(x)\rVert$ 长得比 $\lVert x\rVert$ 快，LN 的入口就变长，主干那条恒等通路上传回去的梯度每过一层就被多除一次。症状是底层的梯度范数在前几百步里持续下滑，顶层不变或上升。诊断就是把每层的 $\lVert F(x)\rVert/\lVert x\rVert$ 和梯度范数一起画出来，看两条线是否同步。【推断，依据：引理 3 和 Post-LN 的结构；Liu et al. 2020 对 Post-LN 训练动态有更完整的分析，见最后一节】</p>
+</div>
+
+<h2>残差流的粗细</h2>
+<p>先准备一个小工具，论文的引理 1：一个各坐标独立、服从 $N(0,\sigma^2)$ 的 $d$ 维向量过一次 ReLU，长度平方的期望从 $\sigma^2 d$ 变成 $\tfrac12\sigma^2 d$。理由一句话：每个坐标有一半概率被置零，另一半原样保留，而正半边的二阶矩正好是整体的一半。</p>
+<p>再看一个 FFN 子层对长度的作用。输入长度平方为 $d$，权重按 $N(0,1/d)$ 初始化，过 $W^1$ 之后每个坐标方差为 1，过 ReLU 剩一半，过 $W^2$ 长度平方期望为 $d/2$。支路输出和主干输入在期望上不相关（交叉项里有一个均值为零的随机矩阵），所以相加时长度平方直接相加。</p>
+<p>有了这两步，引理 2 就是记账。</p>
+<p><b>Post-LN。</b>每一层的输入刚被 LN 过，长度平方恰好是 $d$。注意力子层在均匀注意力的简化下加上一个均值向量，再过 LN 又回到 $d$；FFN 子层加上 $d/2$，得到 $\mathbb E\lVert x^{\text{post},5}_{l}\rVert^2=\tfrac32 d$，然后被最后那次 LN 拉回 $d$。每一层都一样，和 $l$ 无关。</p>
+<p><b>Pre-LN。</b>主干只做加法，没人把它拉回去。每一层往主干上加两个支路：注意力支路贡献 0 到 $d$ 之间（取决于序列里各向量平均之后还剩多长），FFN 支路贡献 $d/2$。从 $\lVert x_0\rVert^2=d$ 起步，一层一层累加：</p>
+<p>$$\Big(1+\frac l2\Big)d\ \le\ \mathbb E\lVert \role{in}{x^{\text{pre}}_{l}}\rVert^2\ \le\ \Big(1+\frac{3l}{2}\Big)d$$</p>
+<p>第 6 层时在 $4d$ 到 $10d$ 之间，第 24 层时在 $13d$ 到 $37d$ 之间。残差流随深度线性变粗。</p>
+<p>我用文末的最小实现把这两条直接量了一遍（$d=512$，6 层，单头，Xavier 初始化，$d_{ff}=2d$，5 个随机种子）。Post-LN 的 $\lVert x^{\text{post},5}_l\rVert^2/d$ 六层依次是 1.45、1.45、1.47、1.42、1.46、1.50，种子间标准差不超过 0.04。理论值 1.5 是在 $d\times d$、方差 $1/d$ 的设定下算的；换成我用的 $d_{ff}=2d$ 加 Xavier，同样的记账给出 $1+4/9\approx1.44$，和实测对得上。Pre-LN 的 $\lVert x_l\rVert^2/d$ 依次是 1.52、2.15、2.89、3.74、4.69、5.75，每层大约加 0.85，落在引理 2 的区间里，靠近下沿。</p>
+<div class="fk-fig" id="figIso"></div>
+<div class="fk-ctl" id="ctlIso"></div>
+<p class="fk-cap"><b>图 2</b>Pre-LN 的六层加最后的 LN，从下往上叠。指针在图上上下移动，选中的一层亮起轮廓，它上面的层抬起来；读数行给出这一层输出的残差流长度（实测）和梯度穿过最后那个 LN 时要乘的倍数。</p>
+<p>现在把这一节和上一节接起来。Pre-LN 里，从损失回到任何一个参数的梯度，都要先穿过最后那个 LN，而它的入口是全网络最粗的那段残差流。按引理 3，梯度在这里被乘上 $\sqrt d/\lVert x_L\rVert\approx 1/\sqrt{1+cL}$。6 层时实测是 $1/\sqrt{5.75}=0.42$。层数越多，这个倍数越小，而且它一次性乘在所有参数的梯度上。Post-LN 的最后一个 LN 的入口永远是 $\tfrac32 d$ 左右，倍数固定在 $\sqrt{2/3}\approx0.82$，不随层数变。</p>
+<p>这就是整篇论文的机制。它的漂亮之处在于两个引理都只是记账，没有任何一步依赖注意力的具体行为；它的局限也在这里，后面会看到，这笔账只记到了最后一层。</p>
+<div class="bench">
+<p>Pre-LN 的第一版最常见的失效是忘了最后那个 LN。去掉它，输出层直接接在最粗的残差流上。词嵌入按 $N(0,1/d)$ 初始化、和输出层共享时，logit 的标准差是 $\lVert x_L\rVert/\sqrt d$：6 层约 2.4，24 层按每层加 0.85 推算约 4.6，正常应该是 1。随机目标上交叉熵的初值约为 $\ln|V|+s^2/2$，$|V|=10^4$、$s=4.6$ 时是 $9.2+10.6\approx19.8$，而正常的初值是 $\ln|V|\approx9.2$。【推断，示意数字】</p>
+<p>所以最便宜的诊断就是看第 0 步的损失：它应该非常接近 $\ln|V|$，明显偏高就去查输出端的尺度。补丁是加回最后那个 LN。它的代价正是本文的主题：这个 LN 会把所有参数的梯度一起压小，层数越深压得越多，这在 Pre-LN 里是优点，因为它让大学习率一开始就安全，但也意味着深层 Pre-LN 的每一层对输出的影响被摊薄，最后一节再谈这件事。</p>
+</div>
