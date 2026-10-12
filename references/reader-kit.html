@@ -323,8 +323,11 @@ var XRAY = (function () {
     var probe = $('main > p, .xr-sec > p') || main, mr = main.getBoundingClientRect(), right = Math.min(probe.getBoundingClientRect().right - mr.left, mr.width);
     margin.style.left = (right + 30) + 'px'; margin.style.width = Math.min(300, mr.width - right - 36) + 'px';
     var y = 0;
-    state.marks.filter(function (m) { return m.type === 'note'; }).forEach(function (m) {
-      var el = $('mark.xr-m[data-id="' + m.id + '"]'); if (!el || el.closest('.xr-sec.closed')) return;
+    state.marks.filter(function (m) { return m.type === 'note'; }).map(function (m) { return { m: m, el: $('mark.xr-m[data-id="' + m.id + '"]') }; })
+      .filter(function (x) { return x.el && !x.el.closest('.xr-sec.closed'); })
+      .sort(function (a, b) { return a.el.getBoundingClientRect().top - b.el.getBoundingClientRect().top; })
+      .forEach(function (x) {
+      var m = x.m, el = x.el;
       var c = document.createElement('div'); c.className = 'xr-card' + (wide ? '' : ' inline'); c.setAttribute('data-id', m.id);
       c.innerHTML = '<div class="q">' + esc(m.quote) + '</div><textarea rows="1" placeholder="' + L.ph + '"></textarea>';
       var ta = c.querySelector('textarea'); ta.value = m.note || '';
