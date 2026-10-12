@@ -44,8 +44,6 @@ Each is one HTML file. Download and open it in a browser; no build, no server. T
 | [**Where LayerNorm sits sets the gradient scale at initialization**](./demos/preln-xray/preln-xray.html) · [open online](https://raw.githack.com/Wang-auspicious/paper-xray/master/demos/preln-xray/preln-xray.html) | ML paper: Pre-LN (Xiong et al., ICML 2020) | A runnable minimal reimplementation reproduces the lemma's numbers and finds a Jacobian factor missing from the appendix, a swapped speed figure, and a comparison that confounds the schedule with the normalization |
 | [**A slow photocurrent and a single iodide-vacancy hop share 0.6 eV**](./demos/perovskite-ion-xray/perovskite-ion-xray.html) · [open online](https://raw.githack.com/Wang-auspicious/paper-xray/master/demos/perovskite-ion-xray/perovskite-ion-xray.html) | Chemistry and materials: Eames et al., Nat. Commun. 2015 | Hand calculations from a 0.6 eV activation energy to device response in seconds, and what else must agree once a computed barrier matches an Arrhenius slope |
 
-The earlier [DINO x-ray](./demos/dino-xray.html) (ICCV 2021) is still there.
-
 ## Figures
 
 Crops from the LLM demo. Every figure is drawn in one figure language: color marks a role rather than decorating, a box holds a name and nothing else, wires run only horizontally and vertically, and no figure carries a title or a legend.
@@ -114,8 +112,7 @@ paper-xray/
 ├── demos/
 │   ├── llm-pretraining-xray/      # Topic-mode demo with its body, figure code, tokenizer trainer and build script
 │   ├── preln-xray/                # Pre-LN paper demo with the minimal reimplementation
-│   ├── perovskite-ion-xray/       # Perovskite ion-migration demo with the hand-calculation script
-│   └── dino-xray.html
+│   └── perovskite-ion-xray/       # Perovskite ion-migration demo with the hand-calculation script
 ├── assets/                        # Images for this README
 ├── README.md
 ├── README.zh-CN.md

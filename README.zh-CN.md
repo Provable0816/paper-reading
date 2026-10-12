@@ -44,8 +44,6 @@ Paper X-Ray 把这些还原出来。给它一篇论文，或者一个主题，�
 | [**LayerNorm 的位置决定初始化时的梯度尺度**](./demos/preln-xray/preln-xray.html) · [在线打开](https://raw.githack.com/Wang-auspicious/paper-xray/master/demos/preln-xray/preln-xray.html) | AI 论文：Pre-LN（Xiong et al., ICML 2020） | 用一个可运行的最小实现复现了引理的数值，指出附录里漏掉的一个雅可比因子、一处写反的速度数字，以及调度和归一化位置混在一起的对照 |
 | [**光电流的慢弛豫和碘空位的一次跳跃共用一个 0.6 eV**](./demos/perovskite-ion-xray/perovskite-ion-xray.html) · [在线打开](https://raw.githack.com/Wang-auspicious/paper-xray/master/demos/perovskite-ion-xray/perovskite-ion-xray.html) | 化学与材料：Eames et al., Nat. Commun. 2015 | 从 0.6 eV 的活化能手算到秒级的器件响应，检查计算势垒和阿伦尼乌斯斜率对上之后还要对上什么 |
 
-更早的 [DINO 解读](./demos/dino-xray.html)（ICCV 2021）也还在。
-
 ## 图
 
 下面是大模型那份 demo 里的局部截图。每张图都由同一套图语言画出：颜色表示角色而不是装饰，框里只写名字，连线只走横竖，图里不放标题和图例。
@@ -114,8 +112,7 @@ paper-xray/
 ├── demos/
 │   ├── llm-pretraining-xray/      # 主题模式 demo，含正文、图脚本、分词器训练脚本和构建脚本
 │   ├── preln-xray/                # Pre-LN 论文 demo，含最小复现脚本
-│   ├── perovskite-ion-xray/       # 钙钛矿离子迁移 demo，含手算脚本
-│   └── dino-xray.html
+│   └── perovskite-ion-xray/       # 钙钛矿离子迁移 demo，含手算脚本
 ├── assets/                        # README 用图
 ├── README.md
 ├── README.zh-CN.md
