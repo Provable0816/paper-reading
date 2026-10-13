@@ -20,7 +20,7 @@ There is one profile, not one per language. `<skill dir>` below means the folder
 **Update check, at most once a day.** Read the date on the first line of `<skill dir>/user/log.md`. If it is today, skip.
 
 - If the skill folder is a git checkout: `git -C "<skill dir>" fetch -q origin`, then `git -C "<skill dir>" rev-list --count HEAD..@{u}`.
-- Otherwise: `curl -fsSL --max-time 5 https://raw.githubusercontent.com/Wang-auspicious/paper-xray/master/VERSION`, compared with `<skill dir>/VERSION`.
+- Otherwise: `curl -fsSL --max-time 5 https://raw.githubusercontent.com/Provable0816/paper-reading/master/VERSION`, compared with `<skill dir>/VERSION`.
 
 If the local copy is behind, make the first line of your reply **paper-reading-from-how has a newer version**, followed by the update command (`git -C "<skill dir>" pull` for a git install, the repository URL otherwise). Never update on your own. If a command fails or there is no network, skip silently. Write today's date back into log.md.
 
