@@ -1,4 +1,4 @@
-# paper-xray: English specification
+# paper-reading-from-how: English specification
 
 This is the working specification for English-language requests. It is the same set of requirements as the Chinese `SKILL.md`, rewritten the way an English technical author would state them, not translated sentence by sentence. Execution rules are identical in both; they are restated here so this file stands alone.
 
@@ -22,7 +22,7 @@ There is one profile, not one per language. `<skill dir>` below means the folder
 - If the skill folder is a git checkout: `git -C "<skill dir>" fetch -q origin`, then `git -C "<skill dir>" rev-list --count HEAD..@{u}`.
 - Otherwise: `curl -fsSL --max-time 5 https://raw.githubusercontent.com/Wang-auspicious/paper-xray/master/VERSION`, compared with `<skill dir>/VERSION`.
 
-If the local copy is behind, make the first line of your reply **paper-xray has a newer version**, followed by the update command (`git -C "<skill dir>" pull` for a git install, the repository URL otherwise). Never update on your own. If a command fails or there is no network, skip silently. Write today's date back into log.md.
+If the local copy is behind, make the first line of your reply **paper-reading-from-how has a newer version**, followed by the update command (`git -C "<skill dir>" pull` for a git install, the repository URL otherwise). Never update on your own. If a command fails or there is no network, skip silently. Write today's date back into log.md.
 
 **Reader profile.** Read `<skill dir>/user/profile.md`. If it does not exist, create `user/`, profile.md and log.md from the templates in **Reader profile** at the end of this file. If any of the four **Basics** fields is empty, run the first-use questionnaire after you have the material and have read its abstract. It appears once, only while Basics is empty.
 
@@ -658,7 +658,7 @@ The profile makes the explanations fit the reader better over time. Everything l
 
 ```markdown
 # Reader profile
-<!-- maintained by paper-xray; safe to edit by hand -->
+<!-- maintained by paper-reading-from-how; safe to edit by hand -->
 
 ## Basics
 - Math:

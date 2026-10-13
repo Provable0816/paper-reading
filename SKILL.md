@@ -1,5 +1,5 @@
 ---
-name: paper-xray
+name: paper-reading-from-how
 description: "讲透单篇论文或一个技术主题：还原作者思路和真正做实验时会碰到的问题，把公式讲透，怀疑式审读；按读者档案调整深浅，交付 MD 或可标注的 HTML。Explain one paper or one technical topic in depth: the authors' reasoning, what breaks when you actually run it, every formula made concrete, a skeptical read; tuned to the reader's profile, delivered as Markdown or an annotatable HTML page."
 argument-hint: "<PDF 路径 | arXiv 号/链接 | 粘贴正文 | 一个主题> [md|html]"
 ---
@@ -20,7 +20,7 @@ argument-hint: "<PDF 路径 | arXiv 号/链接 | 粘贴正文 | 一个主题> [m
 - skill 目录是 git 仓库：执行 `git -C "<skill目录>" fetch -q origin`，再执行 `git -C "<skill目录>" rev-list --count HEAD..@{u}`。
 - 不是 git 仓库：执行 `curl -fsSL --max-time 5 https://raw.githubusercontent.com/Wang-auspicious/paper-xray/master/VERSION`，和 `<skill目录>/VERSION` 比较。
 
-如果落后，就在本次回复的第一行写一句：**paper-xray 有新版本**，并附上更新命令（git 安装给 `git -C "<skill目录>" pull`，否则给仓库地址）。不自动更新。命令失败或没有网络就静默跳过。最后把今天的日期写回 log.md。
+如果落后，就在本次回复的第一行写一句：**paper-reading-from-how 有新版本**，并附上更新命令（git 安装给 `git -C "<skill目录>" pull`，否则给仓库地址）。不自动更新。命令失败或没有网络就静默跳过。最后把今天的日期写回 log.md。
 
 **2. 读者档案**：读 `<skill目录>/user/profile.md`。文件不存在时，按本文件末尾 `<reader_profile>` 里的模板创建 `user/` 目录、profile.md 和 log.md。档案的**基础**四项里有空的，就在拿到材料、看过摘要之后弹首次问卷（见 `<reader_profile>`）。问卷只在基础为空时出现一次。
 
@@ -637,7 +637,7 @@ Hinton 式的语气落实为几件事：
 
 ```markdown
 # 读者档案
-<!-- paper-xray 自动维护，可以手改。 -->
+<!-- paper-reading-from-how 自动维护，可以手改。 -->
 
 ## 基础
 - 数学：
